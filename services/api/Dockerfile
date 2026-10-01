@@ -26,8 +26,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------- runtime
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
-# Utilisateur non-root : limite l'impact d'une éventuelle compromission.
-RUN groupadd --system --gid 10001 app \
+# Correctifs de sécurité du système (ex. OpenSSL) publiés après l'image de base,
+# puis utilisateur non-root pour limiter l'impact d'une éventuelle compromission.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home app
 
 ENV PATH="/app/.venv/bin:$PATH" \
