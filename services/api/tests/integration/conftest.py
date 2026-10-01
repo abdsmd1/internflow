@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -17,14 +18,21 @@ from internflow_api.infrastructure.persistence.sqlalchemy_uow import build_engin
 API_ROOT = Path(__file__).resolve().parents[2]
 
 
+_WINDOWS_DOCKER_PIPE = r"\\.\pipe\docker_engine"
+_UNIX_DOCKER_SOCKET = "/var/run/docker.sock"
+
+
 def _docker_available() -> bool:
-    """Vérifie qu'un démon Docker répond, sans laisser de ressource ouverte."""
+    """Vérifie qu'un démon Docker répond (Linux, macOS ou Windows), sans fuite de ressource."""
     if os.environ.get("DOCKER_HOST"):
         return True
+    if sys.platform == "win32":
+        # Docker Desktop expose un « named pipe » sous Windows, pas de socket Unix.
+        return os.path.exists(_WINDOWS_DOCKER_PIPE)
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(1)
         try:
-            sock.connect("/var/run/docker.sock")
+            sock.connect(_UNIX_DOCKER_SOCKET)
         except OSError:
             return False
     return True
