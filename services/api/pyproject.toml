@@ -1,0 +1,71 @@
+[project]
+name = "internflow-api"
+version = "0.1.0"
+description = "InternFlow — API de gestion des stagiaires (architecture hexagonale)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.140,<1.0",
+  "uvicorn[standard]>=0.32,<1.0",
+  "pydantic[email]>=2.13,<3",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0.50,<2.1",
+  "alembic>=1.20,<2",
+  "psycopg[binary]>=3.2,<4",
+  "structlog>=26.1,<27",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "httpx2>=1.0",  # client HTTP utilisé par le TestClient de Starlette
+  "mypy>=2.3",
+  "ruff>=0.16",
+  "testcontainers[postgres]>=4.8",
+  "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/internflow_api"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+files = ["src", "tests", "migrations"]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+  "--cov=internflow_api",
+  "--cov-report=term-missing",
+]
+markers = [
+  "integration: tests qui démarrent une vraie base PostgreSQL (Docker requis)",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]

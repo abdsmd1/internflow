@@ -1,0 +1,10 @@
+# La couche application suit la même règle que le domaine :
+# elle ne dépend ni du web, ni de la base de données.
+extend = "../../../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"fastapi".msg = "La couche application ne doit pas dépendre de FastAPI."
+"starlette".msg = "La couche application ne doit pas dépendre de Starlette."
+"sqlalchemy".msg = "La couche application ne doit pas dépendre de SQLAlchemy."
+"internflow_api.infrastructure".msg = "Passer par un port du domaine, pas par l'infrastructure."
+"internflow_api.presentation".msg = "La couche application ne dépend pas de la présentation."

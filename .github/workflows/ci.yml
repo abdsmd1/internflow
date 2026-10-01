@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Une nouvelle exécution sur la même branche annule la précédente.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read   # moindre privilège pour le jeton GitHub
+
+env:
+  UV_FROZEN: "1"   # échoue si uv.lock n'est pas à jour
+
+jobs:
+  quality:
+    name: Lint & typage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --all-packages
+      - run: make lint
+      - run: make typecheck
+
+  tests:
+    name: Tests (unitaires + intégration PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: internflow
+          POSTGRES_PASSWORD: internflow
+          POSTGRES_DB: internflow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U internflow"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      INTERNFLOW_TEST_DATABASE_URL: postgresql+psycopg://internflow:internflow@localhost:5432/internflow_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --all-packages
+      - name: Tests avec couverture (seuil 85 %)
+        run: cd services/api && uv run pytest --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: services/api/coverage.xml
+
+  security:
+    name: Sécurité des dépendances et du code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Vulnérabilités connues (pip-audit)
+        run: uv export --all-packages --no-dev --no-hashes --no-emit-workspace -o requirements.txt && uvx pip-audit -r requirements.txt
+      - name: Secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build & scan de l'image
+    runs-on: ubuntu-latest
+    needs: [quality, tests]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/api/Dockerfile
+          tags: internflow-api:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Scan de vulnérabilités (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: internflow-api:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"

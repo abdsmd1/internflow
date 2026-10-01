@@ -1,0 +1,54 @@
+# Environnement de développement local.
+# Usage : cp .env.example .env && make up
+name: internflow
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?définir POSTGRES_USER dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-internflow}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"   # exposé uniquement en local
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Job ponctuel : applique les migrations puis s'arrête.
+  migrate:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment: &api-env
+      INTERNFLOW_ENVIRONMENT: ${INTERNFLOW_ENVIRONMENT:-local}
+      INTERNFLOW_LOG_LEVEL: ${INTERNFLOW_LOG_LEVEL:-INFO}
+      INTERNFLOW_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-internflow}
+      INTERNFLOW_CORS_ORIGINS: ${INTERNFLOW_CORS_ORIGINS:-[]}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    environment: *api-env
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  postgres-data:

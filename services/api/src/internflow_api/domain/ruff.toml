@@ -1,0 +1,13 @@
+# Configuration Ruff propre à la couche domaine : hérite de la racine
+# et interdit tout import de framework (règle de dépendance hexagonale).
+extend = "../../../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"fastapi".msg = "Le domaine ne doit pas dépendre de FastAPI."
+"starlette".msg = "Le domaine ne doit pas dépendre de Starlette."
+"sqlalchemy".msg = "Le domaine ne doit pas dépendre de SQLAlchemy."
+"pydantic".msg = "Le domaine ne doit pas dépendre de Pydantic."
+"structlog".msg = "Le domaine ne doit pas dépendre de la journalisation technique."
+"internflow_api.application".msg = "Le domaine ne dépend pas de la couche application."
+"internflow_api.infrastructure".msg = "Le domaine ne dépend pas de l'infrastructure."
+"internflow_api.presentation".msg = "Le domaine ne dépend pas de la présentation."

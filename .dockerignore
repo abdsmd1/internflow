@@ -1,0 +1,15 @@
+# Le contexte de build est la racine du monorepo : on n'envoie que le nécessaire.
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+**/.coverage
+**/htmlcov
+**/tests
+.git
+.github
+.env
+.env.*
+docs
+infra

@@ -1,0 +1,37 @@
+# Racine du monorepo : espace de travail uv + configuration Ruff partagée.
+# Chaque service garde son propre pyproject.toml (dépendances isolées).
+
+[tool.uv.workspace]
+members = ["services/api"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["services/api/src", "services/api"]
+extend-exclude = ["**/migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",   # pycodestyle
+  "F",        # pyflakes
+  "I",        # isort
+  "B",        # bugbear : bugs fréquents
+  "UP",       # pyupgrade : syntaxe moderne
+  "N",        # conventions de nommage PEP 8
+  "S",        # bandit : sécurité
+  "SIM",      # simplifications
+  "RUF",      # règles spécifiques Ruff
+  "PL",       # pylint
+  "PT",       # bonnes pratiques pytest
+  "DTZ",      # datetime sans fuseau horaire interdit
+  "ANN",      # annotations de type obligatoires
+  "TID",      # imports interdits (règle de dépendance)
+]
+ignore = ["PLR0913"]  # les commandes/DTO ont légitimement beaucoup de champs
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "ANN", "PLR2004"]  # assert et nombres magiques autorisés dans les tests
+"**/migrations/**" = ["ANN"]
+
+# Règle de dépendance de l'architecture hexagonale : les couches domain/ et application/
+# ont chacune un ruff.toml qui interdit d'importer les frameworks (TID251).
