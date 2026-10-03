@@ -3,7 +3,7 @@
 Plateforme de gestion automatisée des stagiaires : recrutement, suivi, évaluation,
 analytique (PySpark) et assistant IA.
 
-> **Phase 1 — en cours :** socle du projet et module *Stagiaires* de l'API.
+> **Phase 2 — en cours :** stagiaires, encadrants et stages (avec leur cycle de vie) ; l'authentification arrive ensuite.
 
 ## Démarrage rapide
 
@@ -55,6 +55,7 @@ internflow/
 | Typage strict | mypy `--strict` | pre-commit + CI |
 | Tests + couverture ≥ 85 % | pytest | CI |
 | Migrations réversibles | test « escalier » Alembic | CI |
+| Migrations à jour avec le modèle | `alembic check` | CI |
 | Secrets dans le code | gitleaks | pre-commit + CI |
 | Vulnérabilités | pip-audit, Trivy | CI |
 | Messages de commit | Commitizen (Conventional Commits) | commit-msg |
@@ -81,7 +82,10 @@ Pour lancer les tests d'intégration contre une base existante :
 ## Feuille de route
 
 1. ✅ Socle, module Stagiaires
-2. ⏳ Stages, encadrants, tâches, rapports hebdomadaires ; authentification JWT + RBAC
+2. 🔄 Phase 2
+   - ✅ Encadrants et stages (machine à états, contraintes d'intégrité) — [ADR 0006](docs/adr/0006-stages-machine-a-etats-et-integrite.md)
+   - ⏳ Authentification JWT + rôles (RH, encadrant, stagiaire)
+   - ⏳ Tâches et rapports hebdomadaires
 3. ⏳ Pipelines PySpark (bronze / silver / gold) orchestrés par Airflow
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)
 5. ⏳ Agent IA (LangGraph, RAG sur pgvector, validation humaine)

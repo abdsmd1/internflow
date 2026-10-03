@@ -42,7 +42,7 @@ flowchart TB
 
 | Conteneur | État |
 |-----------|------|
-| API FastAPI | ✅ Phase 1 — module Stagiaires |
+| API FastAPI | ✅ Stagiaires, Encadrants, Stages |
 | PostgreSQL | ✅ Phase 1 |
 | Jobs PySpark + MinIO + Airflow | ⏳ Phase 2 |
 | Modèle de matching (MLlib + MLflow) | ⏳ Phase 3 |
@@ -59,11 +59,11 @@ flowchart LR
         mw[Middleware X-Request-ID]
     end
     subgraph application
-        uc[Cas d'usage<br/>RegisterIntern, GetIntern, ListInterns]
+        uc[Cas d'usage<br/>stagiaires, encadrants,<br/>stages et leur cycle de vie]
     end
     subgraph domain
-        ent[Intern, Email, PersonName]
-        ports{{Ports<br/>InternRepository, UnitOfWork, Clock}}
+        ent[Intern, Supervisor, Internship<br/>Email, PersonName, DateRange]
+        ports{{Ports<br/>Repositories, UnitOfWork, Clock}}
     end
     subgraph infrastructure
         sql[SqlAlchemyUnitOfWork]
