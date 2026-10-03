@@ -28,7 +28,7 @@ from internflow_api.domain.ports.repositories import InternshipFilter
 from internflow_api.domain.supervisor import SupervisorId
 from internflow_api.domain.value_objects import StudyLevel
 from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWork
-from tests.factories import FakeClock
+from tests.factories import HR, FakeClock
 
 OCT = (date(2026, 10, 5), date(2027, 2, 5))
 MARCH = (date(2027, 3, 1), date(2027, 6, 30))
@@ -47,13 +47,14 @@ class World:
         return (
             RegisterIntern(self.uow, self.clock)
             .execute(
+                HR,
                 RegisterInternCommand(
                     "Sara",
                     "El Amrani",
                     f"s{self._counter}@example.com",
                     "ENSA",
                     StudyLevel.INGENIEUR,
-                )
+                ),
             )
             .id
         )
@@ -63,9 +64,10 @@ class World:
         return (
             RegisterSupervisor(self.uow, self.clock)
             .execute(
+                HR,
                 RegisterSupervisorCommand(
                     "Karim", "Benali", f"e{self._counter}@example.com", "IA", max_interns
-                )
+                ),
             )
             .id
         )
@@ -78,7 +80,9 @@ class World:
     ) -> InternshipId:
         return (
             PlanInternship(self.uow, self.clock)
-            .execute(PlanInternshipCommand(intern_id, supervisor_id, "Agent IA de suivi", *period))
+            .execute(
+                HR, PlanInternshipCommand(intern_id, supervisor_id, "Agent IA de suivi", *period)
+            )
             .id
         )
 
@@ -92,7 +96,7 @@ class TestPlanInternship:
     def test_plans_a_new_internship(self, world: World) -> None:
         internship_id = world.plan(world.intern(), world.supervisor())
 
-        internship = GetInternship(world.uow).execute(internship_id)
+        internship = GetInternship(world.uow).execute(HR, internship_id)
         assert internship.status is InternshipStatus.PLANNED
         assert internship.period.days == 124
 
@@ -116,12 +120,12 @@ class TestPlanInternship:
         world.plan(intern, world.supervisor(), OCT)
         world.plan(intern, world.supervisor(), MARCH)
 
-        assert ListInternships(world.uow).execute(InternshipFilter(intern_id=intern)).total == 2
+        assert ListInternships(world.uow).execute(HR, InternshipFilter(intern_id=intern)).total == 2
 
     def test_cancelled_internship_frees_the_period(self, world: World) -> None:
         intern = world.intern()
         first = world.plan(intern, world.supervisor())
-        ChangeInternshipStatus(world.uow, world.clock).execute(first, InternshipAction.CANCEL)
+        ChangeInternshipStatus(world.uow, world.clock).execute(HR, first, InternshipAction.CANCEL)
 
         world.plan(intern, world.supervisor())  # ne lève pas d'exception
 
@@ -144,7 +148,7 @@ class TestPlanInternship:
         with pytest.raises(SupervisorCapacityExceededError):
             world.plan(world.intern(), supervisor)
 
-        assert ListInternships(world.uow).execute().total == 1
+        assert ListInternships(world.uow).execute(HR).total == 1
 
 
 class TestListInternships:
@@ -155,15 +159,15 @@ class TestListInternships:
         world.plan(sara, nadia, MARCH)
         world.plan(world.intern(), karim, OCT)
 
-        by_karim = ListInternships(world.uow).execute(InternshipFilter(supervisor_id=karim))
+        by_karim = ListInternships(world.uow).execute(HR, InternshipFilter(supervisor_id=karim))
         sara_with_karim = ListInternships(world.uow).execute(
-            InternshipFilter(intern_id=sara, supervisor_id=karim)
+            HR, InternshipFilter(intern_id=sara, supervisor_id=karim)
         )
         planned = ListInternships(world.uow).execute(
-            InternshipFilter(status=InternshipStatus.PLANNED)
+            HR, InternshipFilter(status=InternshipStatus.PLANNED)
         )
         ongoing = ListInternships(world.uow).execute(
-            InternshipFilter(status=InternshipStatus.ONGOING)
+            HR, InternshipFilter(status=InternshipStatus.ONGOING)
         )
 
         assert (by_karim.total, sara_with_karim.total, planned.total, ongoing.total) == (2, 1, 3, 0)
@@ -176,35 +180,40 @@ class TestChangeInternshipStatus:
         change = ChangeInternshipStatus(world.uow, after_start)
 
         assert (
-            change.execute(internship_id, InternshipAction.START).status is InternshipStatus.ONGOING
+            change.execute(HR, internship_id, InternshipAction.START).status
+            is InternshipStatus.ONGOING
         )
-        completed = change.execute(internship_id, InternshipAction.COMPLETE)
+        completed = change.execute(HR, internship_id, InternshipAction.COMPLETE)
 
         assert completed.status is InternshipStatus.COMPLETED
-        assert GetInternship(world.uow).execute(internship_id).status is InternshipStatus.COMPLETED
+        assert (
+            GetInternship(world.uow).execute(HR, internship_id).status is InternshipStatus.COMPLETED
+        )
 
     def test_cannot_start_before_start_date(self, world: World) -> None:
         internship_id = world.plan(world.intern(), world.supervisor())  # horloge : 1er octobre
 
         with pytest.raises(InternshipNotStartableYetError):
             ChangeInternshipStatus(world.uow, world.clock).execute(
-                internship_id, InternshipAction.START
+                HR, internship_id, InternshipAction.START
             )
-        assert GetInternship(world.uow).execute(internship_id).status is InternshipStatus.PLANNED
+        assert (
+            GetInternship(world.uow).execute(HR, internship_id).status is InternshipStatus.PLANNED
+        )
 
     def test_refused_transition_is_not_saved(self, world: World) -> None:
         internship_id = world.plan(world.intern(), world.supervisor())
         with pytest.raises(InvalidStatusTransitionError):
             ChangeInternshipStatus(world.uow, world.clock).execute(
-                internship_id, InternshipAction.COMPLETE
+                HR, internship_id, InternshipAction.COMPLETE
             )
 
     def test_unknown_internship(self, world: World) -> None:
         with pytest.raises(InternshipNotFoundError):
             ChangeInternshipStatus(world.uow, world.clock).execute(
-                InternshipId(uuid4()), InternshipAction.CANCEL
+                HR, InternshipId(uuid4()), InternshipAction.CANCEL
             )
 
     def test_get_unknown_internship(self, world: World) -> None:
         with pytest.raises(InternshipNotFoundError):
-            GetInternship(world.uow).execute(InternshipId(uuid4()))
+            GetInternship(world.uow).execute(HR, InternshipId(uuid4()))

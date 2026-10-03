@@ -7,6 +7,7 @@ from typing import Protocol
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId, InternshipStatus
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.user import User
 from internflow_api.domain.value_objects import Email
 
 
@@ -75,3 +76,15 @@ class InternshipRepository(Protocol):
     def count_active_overlapping_for_supervisor(
         self, supervisor_id: SupervisorId, period: DateRange
     ) -> int: ...
+
+
+class UserRepository(Protocol):
+    def add(self, user: User) -> None: ...
+
+    def get_by_email(self, email: Email) -> User | None: ...
+
+    def exists_for_profile(
+        self, *, intern_id: InternId | None = None, supervisor_id: SupervisorId | None = None
+    ) -> bool:
+        """Un compte est-il déjà rattaché à ce profil stagiaire / encadrant ?"""
+        ...

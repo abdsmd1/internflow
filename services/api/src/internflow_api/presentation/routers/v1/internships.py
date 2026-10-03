@@ -36,6 +36,7 @@ from internflow_api.presentation.schemas.internships import (
     InternshipPage,
     InternshipRead,
 )
+from internflow_api.presentation.security import ActorDep
 
 router = APIRouter(prefix="/internships", tags=["Stages"])
 
@@ -64,18 +65,20 @@ ChangeStatusDep = Annotated[ChangeInternshipStatus, Depends(change_internship_st
 )
 def plan_internship(
     payload: InternshipCreate,
+    actor: ActorDep,
     request: Request,
     response: Response,
     use_case: Annotated[PlanInternship, Depends(plan_internship_use_case)],
 ) -> InternshipRead:
     internship = use_case.execute(
+        actor,
         PlanInternshipCommand(
             intern_id=InternId(payload.intern_id),
             supervisor_id=SupervisorId(payload.supervisor_id),
             subject=payload.subject,
             start_date=payload.start_date,
             end_date=payload.end_date,
-        )
+        ),
     )
     response.headers["Location"] = request.url_for(
         "get_internship", internship_id=internship.id
@@ -86,14 +89,16 @@ def plan_internship(
 @router.get("/{internship_id}", summary="Consulter un stage", responses={**_NOT_FOUND})
 def get_internship(
     internship_id: UUID,
+    actor: ActorDep,
     use_case: Annotated[GetInternship, Depends(get_internship_use_case)],
 ) -> InternshipRead:
-    return InternshipRead.from_entity(use_case.execute(InternshipId(internship_id)))
+    return InternshipRead.from_entity(use_case.execute(actor, InternshipId(internship_id)))
 
 
 @router.get("", summary="Lister les stages (filtres combinables, paginé)")
 def list_internships(
     *,  # paramètres nommés uniquement : plus lisible avec de nombreux filtres
+    actor: ActorDep,
     use_case: Annotated[ListInternships, Depends(list_internships_use_case)],
     intern_id: UUID | None = None,
     supervisor_id: UUID | None = None,
@@ -106,7 +111,7 @@ def list_internships(
         supervisor_id=SupervisorId(supervisor_id) if supervisor_id else None,
         status=status_filter,
     )
-    return InternshipPage.from_page(use_case.execute(criteria, offset=offset, limit=limit))
+    return InternshipPage.from_page(use_case.execute(actor, criteria, offset=offset, limit=limit))
 
 
 @router.post(
@@ -114,8 +119,10 @@ def list_internships(
     summary="Démarrer un stage (à partir de sa date de début)",
     responses=_TRANSITION_RESPONSES,
 )
-def start_internship(internship_id: UUID, use_case: ChangeStatusDep) -> InternshipRead:
-    internship = use_case.execute(InternshipId(internship_id), InternshipAction.START)
+def start_internship(
+    internship_id: UUID, actor: ActorDep, use_case: ChangeStatusDep
+) -> InternshipRead:
+    internship = use_case.execute(actor, InternshipId(internship_id), InternshipAction.START)
     return InternshipRead.from_entity(internship)
 
 
@@ -124,8 +131,10 @@ def start_internship(internship_id: UUID, use_case: ChangeStatusDep) -> Internsh
     summary="Terminer un stage en cours",
     responses=_TRANSITION_RESPONSES,
 )
-def complete_internship(internship_id: UUID, use_case: ChangeStatusDep) -> InternshipRead:
-    internship = use_case.execute(InternshipId(internship_id), InternshipAction.COMPLETE)
+def complete_internship(
+    internship_id: UUID, actor: ActorDep, use_case: ChangeStatusDep
+) -> InternshipRead:
+    internship = use_case.execute(actor, InternshipId(internship_id), InternshipAction.COMPLETE)
     return InternshipRead.from_entity(internship)
 
 
@@ -134,6 +143,8 @@ def complete_internship(internship_id: UUID, use_case: ChangeStatusDep) -> Inter
     summary="Annuler un stage prévu ou en cours",
     responses=_TRANSITION_RESPONSES,
 )
-def cancel_internship(internship_id: UUID, use_case: ChangeStatusDep) -> InternshipRead:
-    internship = use_case.execute(InternshipId(internship_id), InternshipAction.CANCEL)
+def cancel_internship(
+    internship_id: UUID, actor: ActorDep, use_case: ChangeStatusDep
+) -> InternshipRead:
+    internship = use_case.execute(actor, InternshipId(internship_id), InternshipAction.CANCEL)
     return InternshipRead.from_entity(internship)

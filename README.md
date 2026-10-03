@@ -3,24 +3,29 @@
 Plateforme de gestion automatisée des stagiaires : recrutement, suivi, évaluation,
 analytique (PySpark) et assistant IA.
 
-> **Phase 2 — en cours :** stagiaires, encadrants et stages (avec leur cycle de vie) ; l'authentification arrive ensuite.
+> **Phase 2 — en cours :** stagiaires, encadrants, stages et authentification par rôles ; les tâches arrivent ensuite.
 
 ## Démarrage rapide
 
 Prérequis : [uv](https://docs.astral.sh/uv/), Docker, Make.
 
 ```bash
-cp .env.example .env      # puis changer POSTGRES_PASSWORD
+cp .env.example .env      # puis changer POSTGRES_PASSWORD et INTERNFLOW_JWT_SECRET
 make install              # dépendances + hooks Git
 make check                # lint + typage + tests
 make up                   # PostgreSQL + migrations + API
+make create-hr email=rh@exemple.ma   # premier compte RH (mot de passe demandé)
 ```
 
-Documentation interactive : http://localhost:8000/docs
+Documentation interactive : http://localhost:8000/docs — bouton **Authorize** pour se connecter
+(le champ *username* contient l'e-mail).
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/token \
+  -d "username=rh@exemple.ma" -d "password=votre-mot-de-passe" | jq -r .access_token)
+
 curl -X POST http://localhost:8000/api/v1/interns \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"first_name":"Sara","last_name":"El Amrani","email":"sara@example.com","school":"ENSA Oujda","study_level":"ingenieur"}'
 ```
 
@@ -84,7 +89,7 @@ Pour lancer les tests d'intégration contre une base existante :
 1. ✅ Socle, module Stagiaires
 2. 🔄 Phase 2
    - ✅ Encadrants et stages (machine à états, contraintes d'intégrité) — [ADR 0006](docs/adr/0006-stages-machine-a-etats-et-integrite.md)
-   - ⏳ Authentification JWT + rôles (RH, encadrant, stagiaire)
+   - ✅ Authentification JWT + rôles (RH, encadrant, stagiaire) — [ADR 0007](docs/adr/0007-authentification-jwt-et-roles.md)
    - ⏳ Tâches et rapports hebdomadaires
 3. ⏳ Pipelines PySpark (bronze / silver / gold) orchestrés par Airflow
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)

@@ -15,6 +15,7 @@ from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId
 from internflow_api.domain.ports.repositories import InternshipFilter, Page
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.user import User, UserId
 from internflow_api.domain.value_objects import Email
 
 
@@ -44,6 +45,7 @@ class _Store:
     interns: dict[InternId, Intern] = field(default_factory=dict)
     supervisors: dict[SupervisorId, Supervisor] = field(default_factory=dict)
     internships: dict[InternshipId, Internship] = field(default_factory=dict)
+    users: dict[UserId, User] = field(default_factory=dict)
 
 
 class InMemoryInternRepository:
@@ -120,6 +122,26 @@ class InMemoryInternshipRepository:
         )
 
 
+class InMemoryUserRepository:
+    def __init__(self, items: dict[UserId, User]) -> None:
+        self._items = items
+
+    def add(self, user: User) -> None:
+        self._items[user.id] = copy.deepcopy(user)
+
+    def get_by_email(self, email: Email) -> User | None:
+        return _find(self._items.values(), lambda u: u.email == email)
+
+    def exists_for_profile(
+        self, *, intern_id: InternId | None = None, supervisor_id: SupervisorId | None = None
+    ) -> bool:
+        return any(
+            (intern_id is not None and u.intern_id == intern_id)
+            or (supervisor_id is not None and u.supervisor_id == supervisor_id)
+            for u in self._items.values()
+        )
+
+
 class InMemoryUnitOfWork:
     """Simule une transaction : rien n'est visible des autres sans `commit()`."""
 
@@ -133,6 +155,7 @@ class InMemoryUnitOfWork:
         self._interns = InMemoryInternRepository(store.interns)
         self._supervisors = InMemorySupervisorRepository(store.supervisors)
         self._internships = InMemoryInternshipRepository(store.internships)
+        self._users = InMemoryUserRepository(store.users)
 
     @property
     def interns(self) -> InMemoryInternRepository:
@@ -145,6 +168,10 @@ class InMemoryUnitOfWork:
     @property
     def internships(self) -> InMemoryInternshipRepository:
         return self._internships
+
+    @property
+    def users(self) -> InMemoryUserRepository:
+        return self._users
 
     def __enter__(self) -> Self:
         self.committed = False

@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from internflow_api.application.pagination import clamp_pagination
+from internflow_api.domain.authorization import require_role
 from internflow_api.domain.exceptions import EmailAlreadyUsedError, SupervisorNotFoundError
 from internflow_api.domain.ports.clock import Clock
 from internflow_api.domain.ports.repositories import Page
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
 from internflow_api.domain.supervisor import DEFAULT_MAX_INTERNS, Supervisor, SupervisorId
+from internflow_api.domain.user import Principal, Role
 from internflow_api.domain.value_objects import Email, PersonName
 
 
@@ -23,13 +25,14 @@ class RegisterSupervisorCommand:
 
 
 class RegisterSupervisor:
-    """Enregistre un encadrant. Règle métier : e-mail unique parmi les encadrants."""
+    """Enregistre un encadrant (RH). Règle métier : e-mail unique parmi les encadrants."""
 
     def __init__(self, uow: UnitOfWork, clock: Clock) -> None:
         self._uow = uow
         self._clock = clock
 
-    def execute(self, command: RegisterSupervisorCommand) -> Supervisor:
+    def execute(self, actor: Principal, command: RegisterSupervisorCommand) -> Supervisor:
+        require_role(actor, Role.HR)
         email = Email(command.email)
         supervisor = Supervisor(
             name=PersonName(command.first_name, command.last_name),
@@ -47,10 +50,12 @@ class RegisterSupervisor:
 
 
 class GetSupervisor:
+    """Consultation ouverte à tout utilisateur authentifié."""
+
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, supervisor_id: SupervisorId) -> Supervisor:
+    def execute(self, actor: Principal, supervisor_id: SupervisorId) -> Supervisor:
         with self._uow as uow:
             supervisor = uow.supervisors.get(supervisor_id)
         if supervisor is None:
@@ -59,10 +64,12 @@ class GetSupervisor:
 
 
 class ListSupervisors:
+    """Consultation ouverte à tout utilisateur authentifié."""
+
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, *, offset: int = 0, limit: int = 20) -> Page[Supervisor]:
+    def execute(self, actor: Principal, *, offset: int = 0, limit: int = 20) -> Page[Supervisor]:
         offset, limit = clamp_pagination(offset, limit)
         with self._uow as uow:
             return uow.supervisors.list(offset=offset, limit=limit)
