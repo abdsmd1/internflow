@@ -55,6 +55,10 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --all-packages
+      - name: Migrations à jour avec le modèle (alembic check)
+        env:
+          INTERNFLOW_DATABASE_URL: postgresql+psycopg://internflow:internflow@localhost:5432/internflow_test
+        run: cd services/api && uv run alembic upgrade head && uv run alembic check
       - name: Tests avec couverture (seuil 85 %)
         run: cd services/api && uv run pytest --cov-report=xml
       - uses: actions/upload-artifact@v7

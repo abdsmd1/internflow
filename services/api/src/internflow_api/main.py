@@ -29,7 +29,7 @@ from internflow_api.presentation.errors import register_exception_handlers
 from internflow_api.presentation.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from internflow_api.presentation.routers import health
 from internflow_api.presentation.routers.health import ReadinessCheck
-from internflow_api.presentation.routers.v1 import interns
+from internflow_api.presentation.routers.v1 import interns, internships, supervisors
 
 
 def _database_readiness(engine: Engine) -> ReadinessCheck:
@@ -99,6 +99,8 @@ def create_app(
 
     api_v1 = APIRouter(prefix="/api/v1")
     api_v1.include_router(interns.router)
+    api_v1.include_router(supervisors.router)
+    api_v1.include_router(internships.router)
     app.include_router(api_v1)
     app.include_router(health.router)
     return app
