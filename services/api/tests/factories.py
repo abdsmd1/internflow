@@ -29,3 +29,28 @@ def intern_payload(**overrides: object) -> dict[str, object]:
     }
     payload.update(overrides)
     return payload
+
+
+def supervisor_payload(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "first_name": "Karim",
+        "last_name": "Benali",
+        "email": "karim.benali@example.com",
+        "department": "Data & IA",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def internship_payload(
+    intern_id: str, supervisor_id: str, **overrides: object
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "intern_id": intern_id,
+        "supervisor_id": supervisor_id,
+        "subject": "Agent IA de suivi des stagiaires",
+        "start_date": "2026-10-05",
+        "end_date": "2027-02-05",
+    }
+    payload.update(overrides)
+    return payload

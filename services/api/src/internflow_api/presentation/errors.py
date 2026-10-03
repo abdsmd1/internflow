@@ -15,20 +15,22 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from internflow_api.domain.exceptions import (
+    BusinessRuleViolationError,
     DomainError,
-    EmailAlreadyUsedError,
-    InternNotFoundError,
     InvalidValueError,
+    NotFoundError,
 )
 
 PROBLEM_JSON = "application/problem+json"
 _PROBLEM_BASE_URI = "https://internflow.dev/problems/"
 
-# Correspondance exception métier → (statut HTTP, type de problème).
-_DOMAIN_ERROR_MAPPING: dict[type[DomainError], tuple[HTTPStatus, str]] = {
-    InternNotFoundError: (HTTPStatus.NOT_FOUND, "intern-not-found"),
-    EmailAlreadyUsedError: (HTTPStatus.CONFLICT, "email-already-used"),
-    InvalidValueError: (HTTPStatus.UNPROCESSABLE_ENTITY, "invalid-value"),
+# Correspondance CATÉGORIE d'erreur métier → statut HTTP.
+# Une nouvelle exception métier n'exige aucune modification ici : elle hérite
+# de sa catégorie, et son `code` devient le type du problème.
+_STATUS_BY_CATEGORY: dict[type[DomainError], HTTPStatus] = {
+    NotFoundError: HTTPStatus.NOT_FOUND,
+    BusinessRuleViolationError: HTTPStatus.CONFLICT,
+    InvalidValueError: HTTPStatus.UNPROCESSABLE_ENTITY,
 }
 
 logger = structlog.get_logger(__name__)
@@ -55,11 +57,11 @@ def problem(
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
-        status, problem_type = next(
-            (mapping for cls, mapping in _DOMAIN_ERROR_MAPPING.items() if isinstance(exc, cls)),
-            (HTTPStatus.BAD_REQUEST, "domain-error"),
+        status = next(
+            (code for cls, code in _STATUS_BY_CATEGORY.items() if isinstance(exc, cls)),
+            HTTPStatus.BAD_REQUEST,
         )
-        return problem(request, status, problem_type, str(exc))
+        return problem(request, status, exc.code, str(exc))
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(

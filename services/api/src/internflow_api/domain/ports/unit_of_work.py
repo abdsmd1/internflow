@@ -3,7 +3,11 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Protocol, Self
 
-from internflow_api.domain.ports.repositories import InternRepository
+from internflow_api.domain.ports.repositories import (
+    InternRepository,
+    InternshipRepository,
+    SupervisorRepository,
+)
 
 
 class UnitOfWork(Protocol):
@@ -15,12 +19,19 @@ class UnitOfWork(Protocol):
             uow.commit()
 
     Si `commit()` n'est pas appelé, la sortie du bloc annule tout (rollback).
+    Tous les repositories d'une même unité de travail partagent la même transaction.
     """
 
-    # Propriété en lecture seule : chaque adaptateur peut exposer son propre
+    # Propriétés en lecture seule : chaque adaptateur peut exposer son propre
     # type de repository (covariance), tant qu'il respecte le port.
     @property
     def interns(self) -> InternRepository: ...
+
+    @property
+    def supervisors(self) -> SupervisorRepository: ...
+
+    @property
+    def internships(self) -> InternshipRepository: ...
 
     def __enter__(self) -> Self: ...
 

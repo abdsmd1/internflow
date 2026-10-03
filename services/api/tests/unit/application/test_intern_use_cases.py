@@ -3,12 +3,12 @@ from uuid import uuid4
 import pytest
 
 from internflow_api.application.interns import (
-    MAX_PAGE_SIZE,
     GetIntern,
     ListInterns,
     RegisterIntern,
     RegisterInternCommand,
 )
+from internflow_api.application.pagination import MAX_PAGE_SIZE
 from internflow_api.domain.exceptions import (
     EmailAlreadyUsedError,
     InternNotFoundError,
