@@ -23,8 +23,11 @@ from internflow_api.application.supervisors import (
     ListSupervisors,
     RegisterSupervisor,
 )
+from internflow_api.application.users import Authenticate, CreateUserAccount, RegisterUser
 from internflow_api.domain.ports.clock import Clock
+from internflow_api.domain.ports.security import PasswordHasher, TokenService
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
+from internflow_api.presentation.security import get_token_service
 
 UnitOfWorkFactory = Callable[[], UnitOfWork]
 
@@ -40,8 +43,14 @@ def get_clock(request: Request) -> Clock:
     return clock
 
 
+def get_password_hasher(request: Request) -> PasswordHasher:
+    hasher: PasswordHasher = request.app.state.password_hasher
+    return hasher
+
+
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
+HasherDep = Annotated[PasswordHasher, Depends(get_password_hasher)]
 
 
 def register_intern_use_case(uow: UowDep, clock: ClockDep) -> RegisterIntern:
@@ -84,3 +93,16 @@ def list_internships_use_case(uow: UowDep) -> ListInternships:
 
 def change_internship_status_use_case(uow: UowDep, clock: ClockDep) -> ChangeInternshipStatus:
     return ChangeInternshipStatus(uow, clock)
+
+
+# ----------------------------------------------------- comptes et authentification
+def authenticate_use_case(
+    uow: UowDep, hasher: HasherDep, tokens: Annotated[TokenService, Depends(get_token_service)]
+) -> Authenticate:
+    return Authenticate(uow, hasher, tokens)
+
+
+def create_user_account_use_case(
+    uow: UowDep, clock: ClockDep, hasher: HasherDep
+) -> CreateUserAccount:
+    return CreateUserAccount(RegisterUser(uow, clock, hasher))

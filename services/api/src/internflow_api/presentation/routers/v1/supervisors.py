@@ -25,6 +25,7 @@ from internflow_api.presentation.schemas.supervisors import (
     SupervisorPage,
     SupervisorRead,
 )
+from internflow_api.presentation.security import ActorDep
 
 router = APIRouter(prefix="/supervisors", tags=["Encadrants"])
 
@@ -40,18 +41,20 @@ router = APIRouter(prefix="/supervisors", tags=["Encadrants"])
 )
 def register_supervisor(
     payload: SupervisorCreate,
+    actor: ActorDep,
     request: Request,
     response: Response,
     use_case: Annotated[RegisterSupervisor, Depends(register_supervisor_use_case)],
 ) -> SupervisorRead:
     supervisor = use_case.execute(
+        actor,
         RegisterSupervisorCommand(
             first_name=payload.first_name,
             last_name=payload.last_name,
             email=str(payload.email),
             department=payload.department,
             max_interns=payload.max_interns,
-        )
+        ),
     )
     response.headers["Location"] = request.url_for(
         "get_supervisor", supervisor_id=supervisor.id
@@ -66,15 +69,17 @@ def register_supervisor(
 )
 def get_supervisor(
     supervisor_id: UUID,
+    actor: ActorDep,
     use_case: Annotated[GetSupervisor, Depends(get_supervisor_use_case)],
 ) -> SupervisorRead:
-    return SupervisorRead.from_entity(use_case.execute(SupervisorId(supervisor_id)))
+    return SupervisorRead.from_entity(use_case.execute(actor, SupervisorId(supervisor_id)))
 
 
 @router.get("", summary="Lister les encadrants (paginé)")
 def list_supervisors(
+    actor: ActorDep,
     use_case: Annotated[ListSupervisors, Depends(list_supervisors_use_case)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 20,
 ) -> SupervisorPage:
-    return SupervisorPage.from_page(use_case.execute(offset=offset, limit=limit))
+    return SupervisorPage.from_page(use_case.execute(actor, offset=offset, limit=limit))

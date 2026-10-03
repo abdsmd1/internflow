@@ -36,6 +36,23 @@ class BusinessRuleViolationError(DomainError):
     code = "business-rule-violation"
 
 
+class UnauthenticatedError(DomainError):
+    """L'identité de l'appelant n'a pas pu être établie."""
+
+    code = "unauthenticated"
+
+
+class PermissionDeniedError(DomainError):
+    """L'appelant est identifié mais n'a pas le droit d'effectuer cette action."""
+
+    code = "permission-denied"
+
+    def __init__(
+        self, message: str = "Vous n'avez pas les droits pour effectuer cette action."
+    ) -> None:
+        super().__init__(message)
+
+
 # -------------------------------------------------------------- introuvables
 class InternNotFoundError(NotFoundError):
     code = "intern-not-found"
@@ -107,3 +124,32 @@ class InternshipNotStartableYetError(BusinessRuleViolationError):
     def __init__(self, start_date: object) -> None:
         super().__init__(f"Le stage ne peut pas démarrer avant sa date de début ({start_date}).")
         self.start_date = start_date
+
+
+class AccountAlreadyLinkedError(BusinessRuleViolationError):
+    code = "account-already-linked"
+
+    def __init__(self, profile_id: object) -> None:
+        super().__init__(f"Le profil {profile_id} possède déjà un compte utilisateur.")
+        self.profile_id = profile_id
+
+
+# ----------------------------------------------------------- authentification
+class InvalidCredentialsError(UnauthenticatedError):
+    code = "invalid-credentials"
+
+    def __init__(self) -> None:
+        # Message volontairement identique que l'e-mail existe ou non :
+        # on ne révèle pas quels comptes existent.
+        super().__init__("E-mail ou mot de passe incorrect.")
+
+
+class InvalidTokenError(UnauthenticatedError):
+    code = "invalid-token"
+
+    def __init__(self) -> None:
+        super().__init__("Jeton d'accès absent, invalide ou expiré.")
+
+
+class WeakPasswordError(InvalidValueError):
+    code = "weak-password"

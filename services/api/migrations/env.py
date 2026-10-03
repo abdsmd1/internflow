@@ -5,7 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from internflow_api.config import get_settings
+from internflow_api.config import DatabaseSettings
 from internflow_api.infrastructure.persistence.orm import Base
 
 config = context.config
@@ -13,8 +13,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Permet aux tests de surcharger l'URL ; sinon on lit INTERNFLOW_DATABASE_URL.
+# Les migrations n'ont besoin que de la base : pas du secret JWT (moindre privilège).
 if not config.get_main_option("sqlalchemy.url"):
-    config.set_main_option("sqlalchemy.url", get_settings().database_url.unicode_string())
+    config.set_main_option("sqlalchemy.url", DatabaseSettings().database_url.unicode_string())
 
 target_metadata = Base.metadata
 

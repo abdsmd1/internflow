@@ -5,11 +5,13 @@ from __future__ import annotations
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId, InternshipStatus
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.user import Role, User, UserId
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
 from internflow_api.infrastructure.persistence.orm import (
     InternRecord,
     InternshipRecord,
     SupervisorRecord,
+    UserRecord,
 )
 
 
@@ -82,5 +84,31 @@ def record_to_internship(record: InternshipRecord) -> Internship:
         subject=record.subject,
         period=DateRange(record.start_date, record.end_date),
         status=InternshipStatus(record.status),
+        created_at=record.created_at,
+    )
+
+
+def user_to_record(user: User) -> UserRecord:
+    return UserRecord(
+        id=user.id,
+        email=user.email.value,
+        password_hash=user.password_hash,
+        role=user.role.value,
+        intern_id=user.intern_id,
+        supervisor_id=user.supervisor_id,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
+
+
+def record_to_user(record: UserRecord) -> User:
+    return User(
+        id=UserId(record.id),
+        email=Email(record.email),
+        password_hash=record.password_hash,
+        role=Role(record.role),
+        intern_id=InternId(record.intern_id) if record.intern_id else None,
+        supervisor_id=SupervisorId(record.supervisor_id) if record.supervisor_id else None,
+        is_active=record.is_active,
         created_at=record.created_at,
     )

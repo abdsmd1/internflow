@@ -7,6 +7,13 @@ from datetime import UTC, date
 from enum import StrEnum
 
 from internflow_api.application.pagination import clamp_pagination
+from internflow_api.domain.authorization import (
+    ensure_can_cancel_internship,
+    ensure_can_progress_internship,
+    ensure_can_view_internship,
+    require_role,
+    scope_internship_filter,
+)
 from internflow_api.domain.exceptions import (
     InternNotFoundError,
     InternshipNotFoundError,
@@ -19,6 +26,7 @@ from internflow_api.domain.ports.clock import Clock
 from internflow_api.domain.ports.repositories import InternshipFilter, Page
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
 from internflow_api.domain.supervisor import SupervisorId
+from internflow_api.domain.user import Principal, Role
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +39,7 @@ class PlanInternshipCommand:
 
 
 class PlanInternship:
-    """Planifie un stage en vérifiant toutes les règles qui dépendent de l'existant.
+    """Planifie un stage (RH) en vérifiant les règles qui dépendent de l'existant.
 
     1. le stagiaire et l'encadrant existent ;
     2. le stagiaire n'a pas déjà un stage actif sur la période ;
@@ -42,7 +50,8 @@ class PlanInternship:
         self._uow = uow
         self._clock = clock
 
-    def execute(self, command: PlanInternshipCommand) -> Internship:
+    def execute(self, actor: Principal, command: PlanInternshipCommand) -> Internship:
+        require_role(actor, Role.HR)
         period = DateRange(command.start_date, command.end_date)
         with self._uow as uow:
             if uow.interns.get(command.intern_id) is None:
@@ -74,11 +83,12 @@ class GetInternship:
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, internship_id: InternshipId) -> Internship:
+    def execute(self, actor: Principal, internship_id: InternshipId) -> Internship:
         with self._uow as uow:
             internship = uow.internships.get(internship_id)
         if internship is None:
             raise InternshipNotFoundError(internship_id)
+        ensure_can_view_internship(actor, internship)
         return internship
 
 
@@ -87,11 +97,17 @@ class ListInternships:
         self._uow = uow
 
     def execute(
-        self, criteria: InternshipFilter | None = None, *, offset: int = 0, limit: int = 20
+        self,
+        actor: Principal,
+        criteria: InternshipFilter | None = None,
+        *,
+        offset: int = 0,
+        limit: int = 20,
     ) -> Page[Internship]:
         offset, limit = clamp_pagination(offset, limit)
+        scoped = scope_internship_filter(actor, criteria or InternshipFilter())
         with self._uow as uow:
-            return uow.internships.list(criteria or InternshipFilter(), offset=offset, limit=limit)
+            return uow.internships.list(scoped, offset=offset, limit=limit)
 
 
 class InternshipAction(StrEnum):
@@ -110,11 +126,17 @@ class ChangeInternshipStatus:
         self._uow = uow
         self._clock = clock
 
-    def execute(self, internship_id: InternshipId, action: InternshipAction) -> Internship:
+    def execute(
+        self, actor: Principal, internship_id: InternshipId, action: InternshipAction
+    ) -> Internship:
         with self._uow as uow:
             internship = uow.internships.get(internship_id)
             if internship is None:
                 raise InternshipNotFoundError(internship_id)
+            if action is InternshipAction.CANCEL:
+                ensure_can_cancel_internship(actor, internship)
+            else:
+                ensure_can_progress_internship(actor, internship)
             match action:
                 case InternshipAction.START:
                     internship.start(today=self._clock.now().astimezone(UTC).date())

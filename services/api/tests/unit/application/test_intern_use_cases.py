@@ -17,7 +17,7 @@ from internflow_api.domain.exceptions import (
 from internflow_api.domain.intern import InternId
 from internflow_api.domain.value_objects import StudyLevel
 from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWork
-from tests.factories import FIXED_NOW, FakeClock
+from tests.factories import FIXED_NOW, HR, FakeClock
 
 
 def command(**overrides: object) -> RegisterInternCommand:
@@ -34,7 +34,7 @@ def command(**overrides: object) -> RegisterInternCommand:
 
 class TestRegisterIntern:
     def test_registers_and_commits(self, uow: InMemoryUnitOfWork, clock: FakeClock) -> None:
-        intern = RegisterIntern(uow, clock).execute(command())
+        intern = RegisterIntern(uow, clock).execute(HR, command())
 
         assert uow.committed
         assert intern.created_at == FIXED_NOW
@@ -45,28 +45,28 @@ class TestRegisterIntern:
         self, uow: InMemoryUnitOfWork, clock: FakeClock
     ) -> None:
         use_case = RegisterIntern(uow, clock)
-        use_case.execute(command(email="sara@example.com"))
+        use_case.execute(HR, command(email="sara@example.com"))
 
         with pytest.raises(EmailAlreadyUsedError):
-            use_case.execute(command(email="SARA@example.com"))
+            use_case.execute(HR, command(email="SARA@example.com"))
 
     def test_invalid_data_is_never_persisted(
         self, uow: InMemoryUnitOfWork, clock: FakeClock
     ) -> None:
         with pytest.raises(InvalidValueError):
-            RegisterIntern(uow, clock).execute(command(email="invalide"))
+            RegisterIntern(uow, clock).execute(HR, command(email="invalide"))
 
-        assert ListInterns(uow).execute().total == 0
+        assert ListInterns(uow).execute(HR).total == 0
 
 
 class TestGetIntern:
     def test_returns_existing_intern(self, uow: InMemoryUnitOfWork, clock: FakeClock) -> None:
-        created = RegisterIntern(uow, clock).execute(command())
-        assert GetIntern(uow).execute(created.id) == created
+        created = RegisterIntern(uow, clock).execute(HR, command())
+        assert GetIntern(uow).execute(HR, created.id) == created
 
     def test_raises_when_missing(self, uow: InMemoryUnitOfWork) -> None:
         with pytest.raises(InternNotFoundError):
-            GetIntern(uow).execute(InternId(uuid4()))
+            GetIntern(uow).execute(HR, InternId(uuid4()))
 
 
 class TestListInterns:
@@ -76,9 +76,9 @@ class TestListInterns:
         register = RegisterIntern(uow, clock)
         emails = [f"stagiaire{i}@example.com" for i in range(5)]
         for email in emails:
-            register.execute(command(email=email))
+            register.execute(HR, command(email=email))
 
-        page = ListInterns(uow).execute(offset=1, limit=2)
+        page = ListInterns(uow).execute(HR, offset=1, limit=2)
 
         assert page.total == 5
         assert [i.email.value for i in page.items] == [emails[3], emails[2]]
@@ -95,5 +95,5 @@ class TestListInterns:
         expected_offset: int,
         expected_limit: int,
     ) -> None:
-        page = ListInterns(uow).execute(offset=offset, limit=limit)
+        page = ListInterns(uow).execute(HR, offset=offset, limit=limit)
         assert (page.offset, page.limit) == (expected_offset, expected_limit)

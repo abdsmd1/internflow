@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 API := services/api
 
-.PHONY: help install lint format typecheck test test-unit test-integration check up down logs migrate migration clean
+.PHONY: help install lint format typecheck test test-unit test-integration check up down logs migrate migration create-hr clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ migrate: ## Applique les migrations sur la base locale
 
 migration: ## Crée une migration : make migration m="description"
 	cd $(API) && uv run alembic revision --autogenerate -m "$(m)"
+
+create-hr: ## Crée un compte RH : make create-hr email=rh@exemple.ma
+	docker compose run --rm migrate python -m internflow_api.cli create-hr-user --email "$(email)"
 
 clean: ## Supprime les caches
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .mypy_cache -o -name .ruff_cache -o -name htmlcov \) -prune -exec rm -rf {} +

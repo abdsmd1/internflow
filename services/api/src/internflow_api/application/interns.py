@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from internflow_api.application.pagination import clamp_pagination
+from internflow_api.domain.authorization import ensure_can_view_intern, require_role
 from internflow_api.domain.exceptions import EmailAlreadyUsedError, InternNotFoundError
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.ports.clock import Clock
 from internflow_api.domain.ports.repositories import Page
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
+from internflow_api.domain.user import Principal, Role
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
 
 
@@ -25,13 +27,14 @@ class RegisterInternCommand:
 
 
 class RegisterIntern:
-    """Inscrit un nouveau stagiaire. Règle métier : e-mail unique."""
+    """Inscrit un nouveau stagiaire (RH). Règle métier : e-mail unique."""
 
     def __init__(self, uow: UnitOfWork, clock: Clock) -> None:
         self._uow = uow
         self._clock = clock
 
-    def execute(self, command: RegisterInternCommand) -> Intern:
+    def execute(self, actor: Principal, command: RegisterInternCommand) -> Intern:
+        require_role(actor, Role.HR)
         email = Email(command.email)
         intern = Intern(
             name=PersonName(command.first_name, command.last_name),
@@ -52,7 +55,8 @@ class GetIntern:
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, intern_id: InternId) -> Intern:
+    def execute(self, actor: Principal, intern_id: InternId) -> Intern:
+        ensure_can_view_intern(actor, intern_id)
         with self._uow as uow:
             intern = uow.interns.get(intern_id)
         if intern is None:
@@ -64,7 +68,8 @@ class ListInterns:
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, *, offset: int = 0, limit: int = 20) -> Page[Intern]:
+    def execute(self, actor: Principal, *, offset: int = 0, limit: int = 20) -> Page[Intern]:
+        require_role(actor, Role.HR, Role.SUPERVISOR)
         offset, limit = clamp_pagination(offset, limit)
         with self._uow as uow:
             return uow.interns.list(offset=offset, limit=limit)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,18 +19,21 @@ from sqlalchemy.orm import sessionmaker
 from internflow_api import __version__
 from internflow_api.config import Environment, Settings, get_settings
 from internflow_api.domain.ports.clock import Clock
+from internflow_api.domain.ports.security import PasswordHasher, TokenService
 from internflow_api.infrastructure.clock import SystemClock
 from internflow_api.infrastructure.logging import configure_logging
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import (
     SqlAlchemyUnitOfWork,
     build_engine,
 )
+from internflow_api.infrastructure.security.argon2_hasher import Argon2PasswordHasher
+from internflow_api.infrastructure.security.jwt_tokens import JwtTokenService
 from internflow_api.presentation.dependencies import UnitOfWorkFactory
 from internflow_api.presentation.errors import register_exception_handlers
 from internflow_api.presentation.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from internflow_api.presentation.routers import health
 from internflow_api.presentation.routers.health import ReadinessCheck
-from internflow_api.presentation.routers.v1 import interns, internships, supervisors
+from internflow_api.presentation.routers.v1 import auth, interns, internships, supervisors, users
 
 
 def _database_readiness(engine: Engine) -> ReadinessCheck:
@@ -55,8 +59,11 @@ def create_app(
     uow_factory: UnitOfWorkFactory | None = None,
     clock: Clock | None = None,
     readiness_check: ReadinessCheck | None = None,
+    password_hasher: PasswordHasher | None = None,
+    token_service: TokenService | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    clock = clock or SystemClock()
     configure_logging(settings.log_level, json=settings.environment is not Environment.LOCAL)
 
     engine: Engine | None = None
@@ -84,8 +91,14 @@ def create_app(
     )
 
     app.state.uow_factory = uow_factory
-    app.state.clock = clock or SystemClock()
+    app.state.clock = clock
     app.state.readiness_check = readiness_check or (lambda: True)
+    app.state.password_hasher = password_hasher or Argon2PasswordHasher()
+    app.state.token_service = token_service or JwtTokenService(
+        secret=settings.jwt_secret.get_secret_value(),
+        clock=clock,
+        ttl=timedelta(minutes=settings.access_token_ttl_minutes),
+    )
 
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
@@ -98,6 +111,8 @@ def create_app(
     register_exception_handlers(app)
 
     api_v1 = APIRouter(prefix="/api/v1")
+    api_v1.include_router(auth.router)
+    api_v1.include_router(users.router)
     api_v1.include_router(interns.router)
     api_v1.include_router(supervisors.router)
     api_v1.include_router(internships.router)

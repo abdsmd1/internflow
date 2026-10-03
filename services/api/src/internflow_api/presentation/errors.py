@@ -19,6 +19,8 @@ from internflow_api.domain.exceptions import (
     DomainError,
     InvalidValueError,
     NotFoundError,
+    PermissionDeniedError,
+    UnauthenticatedError,
 )
 
 PROBLEM_JSON = "application/problem+json"
@@ -31,6 +33,8 @@ _STATUS_BY_CATEGORY: dict[type[DomainError], HTTPStatus] = {
     NotFoundError: HTTPStatus.NOT_FOUND,
     BusinessRuleViolationError: HTTPStatus.CONFLICT,
     InvalidValueError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    UnauthenticatedError: HTTPStatus.UNAUTHORIZED,
+    PermissionDeniedError: HTTPStatus.FORBIDDEN,
 }
 
 logger = structlog.get_logger(__name__)
@@ -41,6 +45,8 @@ def problem(
     status: HTTPStatus,
     problem_type: str,
     detail: str,
+    *,
+    headers: dict[str, str] | None = None,
     **extensions: object,
 ) -> JSONResponse:
     body: dict[str, object] = {
@@ -51,7 +57,7 @@ def problem(
         "instance": request.url.path,
         **extensions,
     }
-    return JSONResponse(body, status_code=status.value, media_type=PROBLEM_JSON)
+    return JSONResponse(body, status_code=status.value, media_type=PROBLEM_JSON, headers=headers)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -61,7 +67,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             (code for cls, code in _STATUS_BY_CATEGORY.items() if isinstance(exc, cls)),
             HTTPStatus.BAD_REQUEST,
         )
-        return problem(request, status, exc.code, str(exc))
+        # RFC 6750 : un 401 indique au client quel schéma d'authentification utiliser.
+        headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, UnauthenticatedError) else None
+        return problem(request, status, exc.code, str(exc), headers=headers)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(

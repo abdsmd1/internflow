@@ -23,7 +23,7 @@ from internflow_api.domain.exceptions import EmailAlreadyUsedError
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import SqlAlchemyUnitOfWork
-from tests.factories import FIXED_NOW, FakeClock
+from tests.factories import FIXED_NOW, HR, FakeClock
 
 pytestmark = pytest.mark.integration
 
@@ -38,9 +38,9 @@ def _command(email: str) -> RegisterInternCommand:
 
 
 def test_round_trip(uow: SqlAlchemyUnitOfWork) -> None:
-    created = RegisterIntern(uow, FakeClock()).execute(_command("sara@example.com"))
+    created = RegisterIntern(uow, FakeClock()).execute(HR, _command("sara@example.com"))
 
-    loaded = GetIntern(uow).execute(created.id)
+    loaded = GetIntern(uow).execute(HR, created.id)
 
     assert loaded == created
     assert loaded.email == Email("sara@example.com")
@@ -84,4 +84,4 @@ def test_uncommitted_changes_are_rolled_back(uow: SqlAlchemyUnitOfWork) -> None:
         )
         # pas de commit
 
-    assert ListInterns(uow).execute().total == 0
+    assert ListInterns(uow).execute(HR).total == 0

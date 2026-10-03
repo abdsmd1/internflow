@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from internflow_api.domain.exceptions import (
+    AccountAlreadyLinkedError,
     EmailAlreadyUsedError,
     InternshipNotFoundError,
     InternshipOverlapError,
@@ -23,6 +24,7 @@ from internflow_api.domain.internship import (
 )
 from internflow_api.domain.ports.repositories import InternshipFilter, Page
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.user import User
 from internflow_api.domain.value_objects import Email
 from internflow_api.infrastructure.persistence.mappers import (
     intern_to_record,
@@ -30,16 +32,22 @@ from internflow_api.infrastructure.persistence.mappers import (
     record_to_intern,
     record_to_internship,
     record_to_supervisor,
+    record_to_user,
     supervisor_to_record,
     update_internship_record,
+    user_to_record,
 )
 from internflow_api.infrastructure.persistence.orm import (
     INTERN_EMAIL_UNIQUE_CONSTRAINT,
     INTERNSHIP_OVERLAP_CONSTRAINT,
     SUPERVISOR_EMAIL_UNIQUE_CONSTRAINT,
+    USER_EMAIL_UNIQUE_CONSTRAINT,
+    USER_INTERN_UNIQUE_CONSTRAINT,
+    USER_SUPERVISOR_UNIQUE_CONSTRAINT,
     InternRecord,
     InternshipRecord,
     SupervisorRecord,
+    UserRecord,
 )
 
 _ACTIVE_STATUS_VALUES = sorted(s.value for s in ACTIVE_STATUSES)
@@ -196,6 +204,39 @@ class SqlAlchemyInternshipRepository:
         return self._session.scalar(query) or 0
 
 
+class SqlAlchemyUserRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, user: User) -> None:
+        self._session.add(user_to_record(user))
+        profile = user.intern_id or user.supervisor_id
+        _flush(
+            self._session,
+            {
+                USER_EMAIL_UNIQUE_CONSTRAINT: EmailAlreadyUsedError(user.email.value),
+                USER_INTERN_UNIQUE_CONSTRAINT: AccountAlreadyLinkedError(profile),
+                USER_SUPERVISOR_UNIQUE_CONSTRAINT: AccountAlreadyLinkedError(profile),
+            },
+        )
+
+    def get_by_email(self, email: Email) -> User | None:
+        record = self._session.scalar(select(UserRecord).where(UserRecord.email == email.value))
+        return record_to_user(record) if record else None
+
+    def exists_for_profile(
+        self, *, intern_id: InternId | None = None, supervisor_id: SupervisorId | None = None
+    ) -> bool:
+        if intern_id is None and supervisor_id is None:
+            return False
+        query = select(func.count()).select_from(UserRecord)
+        if intern_id is not None:
+            query = query.where(UserRecord.intern_id == intern_id)
+        if supervisor_id is not None:
+            query = query.where(UserRecord.supervisor_id == supervisor_id)
+        return (self._session.scalar(query) or 0) > 0
+
+
 class SqlAlchemyUnitOfWork:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -217,6 +258,10 @@ class SqlAlchemyUnitOfWork:
     @property
     def internships(self) -> SqlAlchemyInternshipRepository:
         return SqlAlchemyInternshipRepository(self._require_session())
+
+    @property
+    def users(self) -> SqlAlchemyUserRepository:
+        return SqlAlchemyUserRepository(self._require_session())
 
     def __enter__(self) -> Self:
         self._session = self._session_factory()

@@ -32,7 +32,7 @@ from internflow_api.domain.ports.repositories import InternshipFilter
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import SqlAlchemyUnitOfWork
-from tests.factories import FIXED_NOW, FakeClock
+from tests.factories import FIXED_NOW, HR, FakeClock
 
 pytestmark = pytest.mark.integration
 
@@ -144,7 +144,10 @@ class TestSupervisorLock:
         def second_transaction() -> None:
             try:
                 PlanInternship(new_uow(engine), FakeClock()).execute(
-                    PlanInternshipCommand(second_intern, supervisor, "Agent IA", OCT.start, OCT.end)
+                    HR,
+                    PlanInternshipCommand(
+                        second_intern, supervisor, "Agent IA", OCT.start, OCT.end
+                    ),
                 )
                 outcome["result"] = "planned"
             except SupervisorCapacityExceededError as error:
@@ -170,13 +173,13 @@ class TestInternshipQueries:
         (sara, amine), karim = seed(engine, interns=2)
         clock = FakeClock(datetime(2026, 10, 5, tzinfo=UTC))
         plan = PlanInternship(new_uow(engine), FakeClock())
-        first = plan.execute(PlanInternshipCommand(sara, karim, "Agent IA", OCT.start, OCT.end))
-        plan.execute(PlanInternshipCommand(amine, karim, "ETL Spark", OCT.start, OCT.end))
+        first = plan.execute(HR, PlanInternshipCommand(sara, karim, "Agent IA", OCT.start, OCT.end))
+        plan.execute(HR, PlanInternshipCommand(amine, karim, "ETL Spark", OCT.start, OCT.end))
 
-        ChangeInternshipStatus(new_uow(engine), clock).execute(first.id, InternshipAction.START)
+        ChangeInternshipStatus(new_uow(engine), clock).execute(HR, first.id, InternshipAction.START)
 
         listing = ListInternships(new_uow(engine))
-        assert listing.execute(InternshipFilter(supervisor_id=karim)).total == 2
-        ongoing = listing.execute(InternshipFilter(status=InternshipStatus.ONGOING))
+        assert listing.execute(HR, InternshipFilter(supervisor_id=karim)).total == 2
+        ongoing = listing.execute(HR, InternshipFilter(status=InternshipStatus.ONGOING))
         assert [i.id for i in ongoing.items] == [first.id]
         assert ongoing.items[0].period == OCT

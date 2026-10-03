@@ -1,13 +1,20 @@
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from internflow_api.config import Environment, Settings
 from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWork
-from internflow_api.main import create_app
-from tests.factories import FakeClock, intern_payload, internship_payload, supervisor_payload
+from internflow_api.infrastructure.security.argon2_hasher import Argon2PasswordHasher
+from tests.factories import (
+    HR_EMAIL,
+    FakeClock,
+    intern_payload,
+    internship_payload,
+    supervisor_payload,
+)
+from tests.helpers import authenticated, build_client
 
 SUPERVISORS = "/api/v1/supervisors"
 INTERNSHIPS = "/api/v1/internships"
@@ -125,12 +132,11 @@ class TestListInternshipsEndpoint:
 
 class TestInternshipLifecycleEndpoints:
     @pytest.fixture
-    def client_on_start_date(self) -> TestClient:
-        """Application dont l'horloge est positionnée au premier jour du stage."""
+    def client_on_start_date(self, hasher: Argon2PasswordHasher) -> Iterator[TestClient]:
+        """Application (connectée en RH) dont l'horloge est au premier jour du stage."""
         clock = FakeClock(datetime(2026, 10, 5, 8, 0, tzinfo=UTC))
-        uow = InMemoryUnitOfWork()
-        settings = Settings(environment=Environment.TEST, log_level="WARNING")
-        return TestClient(create_app(settings, uow_factory=lambda: uow, clock=clock))
+        with build_client(InMemoryUnitOfWork(), clock, hasher) as client:
+            yield authenticated(client, HR_EMAIL)
 
     def test_full_lifecycle(self, client_on_start_date: TestClient) -> None:
         client = client_on_start_date
