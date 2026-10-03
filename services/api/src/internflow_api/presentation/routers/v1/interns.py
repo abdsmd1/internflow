@@ -8,12 +8,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from internflow_api.application.interns import (
-    MAX_PAGE_SIZE,
     GetIntern,
     ListInterns,
     RegisterIntern,
     RegisterInternCommand,
 )
+from internflow_api.application.pagination import MAX_PAGE_SIZE
 from internflow_api.domain.intern import InternId
 from internflow_api.presentation.dependencies import (
     get_intern_use_case,

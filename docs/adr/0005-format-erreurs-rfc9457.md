@@ -23,7 +23,10 @@ Toutes les erreurs sont renvoyées en `application/problem+json` (RFC 9457) :
 ```
 
 - Les exceptions métier sont traduites en statuts HTTP **dans la couche présentation**
-  (le domaine ignore HTTP).
+  (le domaine ignore HTTP), selon leur **catégorie** :
+  `NotFoundError` → 404, `BusinessRuleViolationError` → 409, `InvalidValueError` → 422.
+- Le champ `type` reprend le `code` stable de l'exception (`internship-overlap`…) :
+  ajouter une exception métier ne demande aucune modification de la présentation.
 - Les erreurs de validation ajoutent un champ `errors` détaillé.
 - Les erreurs inattendues renvoient un message générique ; le détail part dans
   les logs, corrélé par `X-Request-ID`.

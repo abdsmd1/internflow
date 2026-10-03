@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from internflow_api.application.pagination import clamp_pagination
 from internflow_api.domain.exceptions import EmailAlreadyUsedError, InternNotFoundError
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.ports.clock import Clock
 from internflow_api.domain.ports.repositories import Page
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
-
-MAX_PAGE_SIZE = 100
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,8 +65,6 @@ class ListInterns:
         self._uow = uow
 
     def execute(self, *, offset: int = 0, limit: int = 20) -> Page[Intern]:
-        # Garde-fous côté métier, même si l'API valide déjà : défense en profondeur.
-        offset = max(offset, 0)
-        limit = min(max(limit, 1), MAX_PAGE_SIZE)
+        offset, limit = clamp_pagination(offset, limit)
         with self._uow as uow:
             return uow.interns.list(offset=offset, limit=limit)
