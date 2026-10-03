@@ -12,5 +12,6 @@ acceptation : si la décision change, on écrit un nouvel ADR qui remplace l'anc
 | [0004](0004-postgresql-et-alembic.md) | PostgreSQL et migrations Alembic | Accepté |
 | [0005](0005-format-erreurs-rfc9457.md) | Format d'erreur RFC 9457 | Accepté |
 | [0006](0006-stages-machine-a-etats-et-integrite.md) | Stages : machine à états et garanties d'intégrité | Accepté |
+| [0007](0007-authentification-jwt-et-roles.md) | Authentification JWT et contrôle d'accès par rôles | Accepté |
 
 Modèle pour un nouvel ADR : copier [`template.md`](template.md).

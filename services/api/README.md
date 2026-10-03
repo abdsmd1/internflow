@@ -24,8 +24,15 @@ l'[ADR 0002](../../docs/adr/0002-architecture-hexagonale.md) pour l'architecture
 
 ## Endpoints
 
+Toutes les routes `/api/v1/*` exigent `Authorization: Bearer <jeton>`, sauf la connexion.
+Les sondes `/health/*` restent publiques. Droits par rôle : voir
+[ADR 0007](../../docs/adr/0007-authentification-jwt-et-roles.md).
+
 | Méthode | Chemin | Description |
 |---------|--------|-------------|
+| `POST` | `/api/v1/auth/token` | Se connecter (formulaire OAuth2 : `username` = e-mail) → jeton JWT |
+| `GET` | `/api/v1/auth/me` | Identité et rôle de l'appelant |
+| `POST` | `/api/v1/users` | Créer un compte (RH) — lié à un profil stagiaire ou encadrant selon le rôle |
 | `POST` | `/api/v1/interns` | Inscrire un stagiaire (201 + `Location`, 409 si e-mail déjà utilisé) |
 | `GET` | `/api/v1/interns/{id}` | Consulter un stagiaire (404 si absent) |
 | `GET` | `/api/v1/interns?offset=&limit=` | Lister, du plus récent au plus ancien (limit ≤ 100) |
@@ -45,5 +52,6 @@ l'[ADR 0002](../../docs/adr/0002-architecture-hexagonale.md) pour l'architecture
 
 ```bash
 make migrate
+uv run python -m internflow_api.cli create-hr-user --email rh@exemple.ma
 uv run uvicorn internflow_api.main:create_app --factory --reload
 ```
