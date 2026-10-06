@@ -70,6 +70,22 @@ class SupervisorNotFoundError(NotFoundError):
         self.supervisor_id = supervisor_id
 
 
+class TaskNotFoundError(NotFoundError):
+    code = "task-not-found"
+
+    def __init__(self, task_id: object) -> None:
+        super().__init__(f"Aucune tâche avec l'identifiant {task_id}.")
+        self.task_id = task_id
+
+
+class ReportNotFoundError(NotFoundError):
+    code = "report-not-found"
+
+    def __init__(self, report_id: object) -> None:
+        super().__init__(f"Aucun rapport avec l'identifiant {report_id}.")
+        self.report_id = report_id
+
+
 class InternshipNotFoundError(NotFoundError):
     code = "internship-not-found"
 
@@ -113,7 +129,7 @@ class InvalidStatusTransitionError(BusinessRuleViolationError):
     code = "invalid-status-transition"
 
     def __init__(self, current: str, action: str) -> None:
-        super().__init__(f"Action « {action} » impossible : le stage est au statut « {current} ».")
+        super().__init__(f"Action « {action} » impossible au statut « {current} ».")
         self.current = current
         self.action = action
 
@@ -124,6 +140,32 @@ class InternshipNotStartableYetError(BusinessRuleViolationError):
     def __init__(self, start_date: object) -> None:
         super().__init__(f"Le stage ne peut pas démarrer avant sa date de début ({start_date}).")
         self.start_date = start_date
+
+
+class InternshipClosedError(BusinessRuleViolationError):
+    code = "internship-closed"
+
+    def __init__(self, internship_id: object) -> None:
+        super().__init__(f"Le stage {internship_id} est terminé ou annulé : il n'évolue plus.")
+        self.internship_id = internship_id
+
+
+class InternshipNotOngoingError(BusinessRuleViolationError):
+    code = "internship-not-ongoing"
+
+    def __init__(self, internship_id: object) -> None:
+        super().__init__(
+            f"Le stage {internship_id} n'est pas en cours : impossible de déposer un rapport."
+        )
+        self.internship_id = internship_id
+
+
+class ReportAlreadySubmittedError(BusinessRuleViolationError):
+    code = "report-already-submitted"
+
+    def __init__(self, week: object) -> None:
+        super().__init__(f"Un rapport a déjà été déposé pour la semaine {week}.")
+        self.week = week
 
 
 class AccountAlreadyLinkedError(BusinessRuleViolationError):

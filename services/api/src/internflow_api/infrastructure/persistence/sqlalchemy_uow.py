@@ -14,6 +14,9 @@ from internflow_api.domain.exceptions import (
     EmailAlreadyUsedError,
     InternshipNotFoundError,
     InternshipOverlapError,
+    ReportAlreadySubmittedError,
+    ReportNotFoundError,
+    TaskNotFoundError,
 )
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import (
@@ -23,7 +26,9 @@ from internflow_api.domain.internship import (
     InternshipId,
 )
 from internflow_api.domain.ports.repositories import InternshipFilter, Page
+from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User
 from internflow_api.domain.value_objects import Email
 from internflow_api.infrastructure.persistence.mappers import (
@@ -31,15 +36,22 @@ from internflow_api.infrastructure.persistence.mappers import (
     internship_to_record,
     record_to_intern,
     record_to_internship,
+    record_to_report,
     record_to_supervisor,
+    record_to_task,
     record_to_user,
+    report_to_record,
     supervisor_to_record,
+    task_to_record,
     update_internship_record,
+    update_report_record,
+    update_task_record,
     user_to_record,
 )
 from internflow_api.infrastructure.persistence.orm import (
     INTERN_EMAIL_UNIQUE_CONSTRAINT,
     INTERNSHIP_OVERLAP_CONSTRAINT,
+    REPORT_WEEK_UNIQUE_CONSTRAINT,
     SUPERVISOR_EMAIL_UNIQUE_CONSTRAINT,
     USER_EMAIL_UNIQUE_CONSTRAINT,
     USER_INTERN_UNIQUE_CONSTRAINT,
@@ -47,7 +59,9 @@ from internflow_api.infrastructure.persistence.orm import (
     InternRecord,
     InternshipRecord,
     SupervisorRecord,
+    TaskRecord,
     UserRecord,
+    WeeklyReportRecord,
 )
 
 _ACTIVE_STATUS_VALUES = sorted(s.value for s in ACTIVE_STATUSES)
@@ -237,6 +251,76 @@ class SqlAlchemyUserRepository:
         return (self._session.scalar(query) or 0) > 0
 
 
+class SqlAlchemyTaskRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, task: Task) -> None:
+        self._session.add(task_to_record(task))
+        _flush(self._session, {})
+
+    def get(self, task_id: TaskId) -> Task | None:
+        record = self._session.get(TaskRecord, task_id)
+        return record_to_task(record) if record else None
+
+    def save(self, task: Task) -> None:
+        record = self._session.get(TaskRecord, task.id)
+        if record is None:
+            raise TaskNotFoundError(task.id)
+        update_task_record(record, task)
+        _flush(self._session, {})
+
+    def list_for_internship(self, internship_id: InternshipId) -> list[Task]:
+        records = self._session.scalars(
+            select(TaskRecord)
+            .where(TaskRecord.internship_id == internship_id)
+            .order_by(TaskRecord.due_date, TaskRecord.id)
+        ).all()
+        return [record_to_task(r) for r in records]
+
+
+class SqlAlchemyWeeklyReportRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, report: WeeklyReport) -> None:
+        self._session.add(report_to_record(report))
+        _flush(
+            self._session, {REPORT_WEEK_UNIQUE_CONSTRAINT: ReportAlreadySubmittedError(report.week)}
+        )
+
+    def get(self, report_id: ReportId) -> WeeklyReport | None:
+        record = self._session.get(WeeklyReportRecord, report_id)
+        return record_to_report(record) if record else None
+
+    def save(self, report: WeeklyReport) -> None:
+        record = self._session.get(WeeklyReportRecord, report.id)
+        if record is None:
+            raise ReportNotFoundError(report.id)
+        update_report_record(record, report)
+        _flush(self._session, {})
+
+    def exists_for_week(self, internship_id: InternshipId, week: IsoWeek) -> bool:
+        query = (
+            select(func.count())
+            .select_from(WeeklyReportRecord)
+            .where(
+                WeeklyReportRecord.internship_id == internship_id,
+                WeeklyReportRecord.iso_year == week.year,
+                WeeklyReportRecord.iso_week == week.week,
+            )
+        )
+        return (self._session.scalar(query) or 0) > 0
+
+    def list_for_internship(self, internship_id: InternshipId) -> list[WeeklyReport]:
+        records = self._session.scalars(
+            select(WeeklyReportRecord)
+            .where(WeeklyReportRecord.internship_id == internship_id)
+            .order_by(WeeklyReportRecord.iso_year.desc(), WeeklyReportRecord.iso_week.desc())
+        ).all()
+        return [record_to_report(r) for r in records]
+
+
 class SqlAlchemyUnitOfWork:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -262,6 +346,14 @@ class SqlAlchemyUnitOfWork:
     @property
     def users(self) -> SqlAlchemyUserRepository:
         return SqlAlchemyUserRepository(self._require_session())
+
+    @property
+    def tasks(self) -> SqlAlchemyTaskRepository:
+        return SqlAlchemyTaskRepository(self._require_session())
+
+    @property
+    def reports(self) -> SqlAlchemyWeeklyReportRepository:
+        return SqlAlchemyWeeklyReportRepository(self._require_session())
 
     def __enter__(self) -> Self:
         self._session = self._session_factory()

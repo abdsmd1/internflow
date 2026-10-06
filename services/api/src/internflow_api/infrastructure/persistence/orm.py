@@ -18,6 +18,8 @@ from sqlalchemy import (
     MetaData,
     SmallInteger,
     String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -39,6 +41,8 @@ INTERNSHIP_OVERLAP_CONSTRAINT = "ex_internships_intern_overlap"
 USER_EMAIL_UNIQUE_CONSTRAINT = "uq_users_email"
 USER_INTERN_UNIQUE_CONSTRAINT = "uq_users_intern_id"
 USER_SUPERVISOR_UNIQUE_CONSTRAINT = "uq_users_supervisor_id"
+# Un seul rapport par stage et par semaine ISO.
+REPORT_WEEK_UNIQUE_CONSTRAINT = "uq_weekly_reports_internship_week"
 
 
 class Base(DeclarativeBase):
@@ -120,3 +124,54 @@ class UserRecord(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class TaskRecord(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint("status IN ('todo', 'in_progress', 'done')", name="status_valid"),
+        CheckConstraint(
+            "(status = 'done') = (completed_at IS NOT NULL)", name="completed_at_matches_status"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    internship_id: Mapped[UUID] = mapped_column(
+        ForeignKey("internships.id", ondelete="RESTRICT"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(150))
+    description: Mapped[str] = mapped_column(Text)
+    due_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20))
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WeeklyReportRecord(Base):
+    __tablename__ = "weekly_reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "internship_id", "iso_year", "iso_week", name=REPORT_WEEK_UNIQUE_CONSTRAINT
+        ),
+        CheckConstraint("iso_week BETWEEN 1 AND 53", name="iso_week_range"),
+        CheckConstraint("status IN ('submitted', 'reviewed')", name="status_valid"),
+        CheckConstraint(
+            "(status = 'reviewed') = (feedback IS NOT NULL AND reviewed_at IS NOT NULL)",
+            name="review_matches_status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    # Pas d'index dédié : la contrainte UNIQUE (internship_id, iso_year, iso_week)
+    # crée déjà un index dont internship_id est la première colonne.
+    internship_id: Mapped[UUID] = mapped_column(ForeignKey("internships.id", ondelete="RESTRICT"))
+    iso_year: Mapped[int] = mapped_column(SmallInteger)
+    iso_week: Mapped[int] = mapped_column(SmallInteger)
+    accomplishments: Mapped[str] = mapped_column(Text)
+    difficulties: Mapped[str] = mapped_column(Text)
+    next_steps: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20))
+    feedback: Mapped[str | None] = mapped_column(Text)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -7,7 +7,9 @@ from internflow_api.domain.ports.repositories import (
     InternRepository,
     InternshipRepository,
     SupervisorRepository,
+    TaskRepository,
     UserRepository,
+    WeeklyReportRepository,
 )
 
 
@@ -36,6 +38,12 @@ class UnitOfWork(Protocol):
 
     @property
     def users(self) -> UserRepository: ...
+
+    @property
+    def tasks(self) -> TaskRepository: ...
+
+    @property
+    def reports(self) -> WeeklyReportRepository: ...
 
     def __enter__(self) -> Self: ...
 

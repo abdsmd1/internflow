@@ -78,4 +78,6 @@ def engine(database_url: str) -> Iterator[Engine]:
 def _clean_tables(engine: Engine) -> Iterator[None]:
     yield
     with engine.begin() as connection:  # isolation entre tests
-        connection.execute(text("TRUNCATE users, internships, supervisors, interns"))
+        connection.execute(
+            text("TRUNCATE weekly_reports, tasks, users, internships, supervisors, interns")
+        )

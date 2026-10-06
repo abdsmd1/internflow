@@ -14,7 +14,9 @@ from typing import Self
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId
 from internflow_api.domain.ports.repositories import InternshipFilter, Page
+from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User, UserId
 from internflow_api.domain.value_objects import Email
 
@@ -46,6 +48,8 @@ class _Store:
     supervisors: dict[SupervisorId, Supervisor] = field(default_factory=dict)
     internships: dict[InternshipId, Internship] = field(default_factory=dict)
     users: dict[UserId, User] = field(default_factory=dict)
+    tasks: dict[TaskId, Task] = field(default_factory=dict)
+    reports: dict[ReportId, WeeklyReport] = field(default_factory=dict)
 
 
 class InMemoryInternRepository:
@@ -142,6 +146,47 @@ class InMemoryUserRepository:
         )
 
 
+class InMemoryTaskRepository:
+    def __init__(self, items: dict[TaskId, Task]) -> None:
+        self._items = items
+
+    def add(self, task: Task) -> None:
+        self._items[task.id] = copy.deepcopy(task)
+
+    def get(self, task_id: TaskId) -> Task | None:
+        return _find(self._items.values(), lambda t: t.id == task_id)
+
+    def save(self, task: Task) -> None:
+        self._items[task.id] = copy.deepcopy(task)
+
+    def list_for_internship(self, internship_id: InternshipId) -> list[Task]:
+        matching = [t for t in self._items.values() if t.internship_id == internship_id]
+        return [copy.deepcopy(t) for t in sorted(matching, key=lambda t: (t.due_date, str(t.id)))]
+
+
+class InMemoryWeeklyReportRepository:
+    def __init__(self, items: dict[ReportId, WeeklyReport]) -> None:
+        self._items = items
+
+    def add(self, report: WeeklyReport) -> None:
+        self._items[report.id] = copy.deepcopy(report)
+
+    def get(self, report_id: ReportId) -> WeeklyReport | None:
+        return _find(self._items.values(), lambda r: r.id == report_id)
+
+    def save(self, report: WeeklyReport) -> None:
+        self._items[report.id] = copy.deepcopy(report)
+
+    def exists_for_week(self, internship_id: InternshipId, week: IsoWeek) -> bool:
+        return any(
+            r.internship_id == internship_id and r.week == week for r in self._items.values()
+        )
+
+    def list_for_internship(self, internship_id: InternshipId) -> list[WeeklyReport]:
+        matching = [r for r in self._items.values() if r.internship_id == internship_id]
+        return [copy.deepcopy(r) for r in sorted(matching, key=lambda r: r.week, reverse=True)]
+
+
 class InMemoryUnitOfWork:
     """Simule une transaction : rien n'est visible des autres sans `commit()`."""
 
@@ -156,6 +201,8 @@ class InMemoryUnitOfWork:
         self._supervisors = InMemorySupervisorRepository(store.supervisors)
         self._internships = InMemoryInternshipRepository(store.internships)
         self._users = InMemoryUserRepository(store.users)
+        self._tasks = InMemoryTaskRepository(store.tasks)
+        self._reports = InMemoryWeeklyReportRepository(store.reports)
 
     @property
     def interns(self) -> InMemoryInternRepository:
@@ -172,6 +219,14 @@ class InMemoryUnitOfWork:
     @property
     def users(self) -> InMemoryUserRepository:
         return self._users
+
+    @property
+    def tasks(self) -> InMemoryTaskRepository:
+        return self._tasks
+
+    @property
+    def reports(self) -> InMemoryWeeklyReportRepository:
+        return self._reports
 
     def __enter__(self) -> Self:
         self.committed = False
