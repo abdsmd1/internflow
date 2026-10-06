@@ -132,6 +132,11 @@ jobs:
           load: true
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Test de fumée de l'image data (Java, pilote JDBC lisible, CLI)
+        if: matrix.image == 'data'
+        run: |
+          docker run --rm --entrypoint sh internflow-data:ci -c \
+            'java -version && test -r "$INTERNFLOW_DATA_JDBC_DRIVER_JAR" && internflow-data --help'
       - name: Scan de vulnérabilités bloquant (système + Python)
         uses: aquasecurity/trivy-action@v0.36.0
         with:

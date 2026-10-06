@@ -12,8 +12,8 @@ import sys
 import time
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
+from pathlib import Path
 
-from pyspark.errors import AnalysisException
 from pyspark.sql import functions as F
 from sqlalchemy.orm import sessionmaker
 
@@ -91,12 +91,11 @@ def run_show(args: argparse.Namespace) -> int:
     settings = DataSettings()  # type: ignore[call-arg]
     spark = build_spark_session("internflow-show", master=settings.spark_master, jars=None)
     try:
-        path = f"{gold_path(settings, args.indicator)}/as_of={args.date.isoformat()}"
-        try:
-            df = spark.read.parquet(path)
-        except AnalysisException:
+        path = Path(gold_path(settings, args.indicator)) / f"as_of={args.date.isoformat()}"
+        if not path.is_dir():
             print(f"Aucun instantané {args.indicator} au {args.date} : lancez d'abord `pipeline`.")
             return 1
+        df = spark.read.parquet(str(path))
         print(f"{args.indicator} au {args.date} : {df.count()} lignes")
         # Clés pseudonymisées tronquées pour la lisibilité.
         keys = [c for c in df.columns if c.endswith("_key")]

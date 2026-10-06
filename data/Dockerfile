@@ -37,7 +37,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app \
- && mkdir -p /lake && chown app:app /lake
+ && mkdir -p /lake /opt/jars && chown app:app /lake
+# /opt/jars est créé ici (mode 755) : si ADD le créait lui-même, BuildKit lui
+# appliquerait aussi --chmod=644 et l'utilisateur `app` ne pourrait plus y entrer.
 
 # Pilote JDBC PostgreSQL : version épinglée ET empreinte vérifiée au build.
 ARG PGJDBC_VERSION=42.7.13
