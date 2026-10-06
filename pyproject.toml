@@ -2,12 +2,12 @@
 # Chaque service garde son propre pyproject.toml (dépendances isolées).
 
 [tool.uv.workspace]
-members = ["services/api"]
+members = ["services/api", "data"]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["services/api/src", "services/api"]
+src = ["services/api/src", "services/api", "data/src", "data"]
 extend-exclude = ["**/migrations/versions"]
 
 [tool.ruff.lint]
@@ -32,6 +32,7 @@ ignore = ["PLR0913"]  # les commandes/DTO ont légitimement beaucoup de champs
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "S105", "S106", "ANN", "PLR2004"]  # assert, faux secrets et nombres magiques autorisés dans les tests
 "**/migrations/**" = ["ANN"]
+"data/**" = ["N812"]  # convention PySpark : `from pyspark.sql import functions as F`
 
 # Règle de dépendance de l'architecture hexagonale : les couches domain/ et application/
 # ont chacune un ruff.toml qui interdit d'importer les frameworks (TID251).
