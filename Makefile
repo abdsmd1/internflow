@@ -1,8 +1,10 @@
 # Commandes unifiées : la CI exécute exactement les mêmes cibles que le développeur.
 .DEFAULT_GOAL := help
 API := services/api
+DATA := data
+INTERNS ?= 200
 
-.PHONY: help install lint format typecheck test test-unit test-integration check up down logs migrate migration create-hr clean
+.PHONY: help install lint format typecheck test test-unit test-integration test-data check up down logs migrate migration create-hr seed pipeline clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -21,6 +23,7 @@ format: ## Formate et corrige automatiquement
 
 typecheck: ## Vérification des types (mypy strict)
 	cd $(API) && uv run mypy
+	cd $(DATA) && uv run mypy
 
 test-unit: ## Tests rapides (sans base de données)
 	cd $(API) && uv run pytest -m "not integration" --no-cov
@@ -31,7 +34,10 @@ test-integration: ## Tests d'intégration (PostgreSQL via Docker)
 test: ## Toute la suite de tests avec couverture
 	cd $(API) && uv run pytest
 
-check: lint typecheck test ## Tout ce que la CI vérifie
+test-data: ## Tests du pipeline PySpark (Java 17+ requis, sinon passer par Docker)
+	cd $(DATA) && uv run pytest
+
+check: lint typecheck test test-data ## Tout ce que la CI vérifie
 
 up: ## Démarre l'environnement local (PostgreSQL + migrations + API)
 	docker compose up --build -d
@@ -51,6 +57,12 @@ migration: ## Crée une migration : make migration m="description"
 
 create-hr: ## Crée un compte RH : make create-hr email=rh@exemple.ma
 	docker compose run --rm migrate python -m internflow_api.cli create-hr-user --email "$(email)"
+
+seed: ## Génère des données fictives : make seed INTERNS=200
+	docker compose run --rm data seed --interns $(INTERNS)
+
+pipeline: ## Exécute le pipeline bronze → silver → gold
+	docker compose run --rm data pipeline
 
 clean: ## Supprime les caches
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .mypy_cache -o -name .ruff_cache -o -name htmlcov \) -prune -exec rm -rf {} +

@@ -13,3 +13,4 @@
 .env.*
 docs
 infra
+data/lake

@@ -1,0 +1,75 @@
+[project]
+name = "internflow-data"
+version = "0.1.0"
+description = "InternFlow — générateur de données et pipelines PySpark (bronze / silver / gold)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pyspark>=4.2,<5",
+  "pydantic-settings>=2.6,<3",
+  "faker>=40,<41",
+  # Le générateur réutilise le domaine et la persistance de l'API : les données
+  # produites respectent exactement les mêmes règles métier.
+  "internflow-api",
+]
+
+[tool.uv.sources]
+internflow-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "mypy>=2.3",
+]
+
+[project.scripts]
+internflow-data = "internflow_data.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/internflow_data"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+files = ["src", "tests"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["faker.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+  "--cov=internflow_data",
+  "--cov-report=term-missing",
+]
+markers = [
+  "integration: tests qui utilisent une vraie base PostgreSQL",
+]
+filterwarnings = [
+  "error",
+  # Avertissements internes de PySpark / py4j, hors de notre contrôle.
+  "ignore::DeprecationWarning:pyspark.*",
+  "ignore::DeprecationWarning:py4j.*",
+  "ignore::ResourceWarning",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\.", "if __name__ == .__main__.:"]

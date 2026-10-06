@@ -24,6 +24,7 @@ build/
 
 # Données locales
 data/local/
+data/lake/
 *.parquet
 spark-warehouse/
 metastore_db/

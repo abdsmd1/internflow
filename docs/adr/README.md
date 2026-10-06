@@ -14,5 +14,6 @@ acceptation : si la décision change, on écrit un nouvel ADR qui remplace l'anc
 | [0006](0006-stages-machine-a-etats-et-integrite.md) | Stages : machine à états et garanties d'intégrité | Accepté |
 | [0007](0007-authentification-jwt-et-roles.md) | Authentification JWT et contrôle d'accès par rôles | Accepté |
 | [0008](0008-taches-et-rapports-hebdomadaires.md) | Tâches et rapports hebdomadaires | Accepté |
+| [0009](0009-pipeline-pyspark-medaillon.md) | Pipeline PySpark en architecture médaillon | Accepté |
 
 Modèle pour un nouvel ADR : copier [`template.md`](template.md).

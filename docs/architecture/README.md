@@ -44,10 +44,11 @@ flowchart TB
 |-----------|------|
 | API FastAPI | ✅ Stagiaires, encadrants, stages, rôles, tâches et rapports hebdomadaires |
 | PostgreSQL | ✅ Phase 1 |
-| Jobs PySpark + MinIO + Airflow | ⏳ Phase 2 |
-| Modèle de matching (MLlib + MLflow) | ⏳ Phase 3 |
-| Agent IA | ⏳ Phase 4 |
-| Frontend | ⏳ Phase 5 |
+| Jobs PySpark (bronze / silver / gold sur disque local) | ✅ Phase 3 |
+| MinIO + Airflow | ⏳ Phase 3 |
+| Modèle de matching (MLlib + MLflow) | ⏳ Phase 4 |
+| Agent IA | ⏳ Phase 5 |
+| Frontend | ⏳ Phase 6 |
 
 ## Niveau 3 — Composants du service API
 
@@ -79,3 +80,19 @@ flowchart LR
 ```
 
 Décision détaillée : [ADR 0002](../adr/0002-architecture-hexagonale.md).
+
+## Niveau 3 — Pipeline de données
+
+```mermaid
+flowchart LR
+    pg[(PostgreSQL)]
+    subgraph lake [data/lake — Parquet]
+        bronze[bronze<br/><i>ingestion_date=</i>]
+        silver[silver<br/><i>pseudonymisé</i>]
+        gold[gold<br/><i>as_of=</i>]
+    end
+    seed[seed<br/><i>entités du domaine</i>] -->|SQLAlchemy| pg
+    pg -->|extract<br/>JDBC, SELECT minimisés| bronze
+    bronze -->|refine<br/>contrats + qualité| silver
+    silver -->|aggregate<br/>indicateurs + qualité| gold
+```

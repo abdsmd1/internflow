@@ -34,7 +34,7 @@ jobs:
   tests:
     name: Tests (unitaires + intégration PostgreSQL)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -48,6 +48,8 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       INTERNFLOW_TEST_DATABASE_URL: postgresql+psycopg://internflow:internflow@localhost:5432/internflow_test
+      PGJDBC_VERSION: 42.7.13
+      PGJDBC_SHA256: 6e0e4cc2d8cae902084f8a2b18728b073a6fd9d1f87c9d8bff8f298c18185b93
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
@@ -55,17 +57,32 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --all-packages
+      - name: Java 21 (requis par PySpark)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Pilote JDBC PostgreSQL (empreinte vérifiée)
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/postgresql.jar" \
+            "https://github.com/pgjdbc/pgjdbc/releases/download/REL${PGJDBC_VERSION}/postgresql-${PGJDBC_VERSION}.jar"
+          echo "${PGJDBC_SHA256}  $RUNNER_TEMP/postgresql.jar" | sha256sum --check
+          echo "INTERNFLOW_DATA_JDBC_DRIVER_JAR=$RUNNER_TEMP/postgresql.jar" >> "$GITHUB_ENV"
       - name: Migrations à jour avec le modèle (alembic check)
         env:
           INTERNFLOW_DATABASE_URL: postgresql+psycopg://internflow:internflow@localhost:5432/internflow_test
         run: cd services/api && uv run alembic upgrade head && uv run alembic check
-      - name: Tests avec couverture (seuil 85 %)
+      - name: Tests de l'API avec couverture (seuil 85 %)
         run: cd services/api && uv run pytest --cov-report=xml
+      - name: Tests du pipeline PySpark avec couverture (seuil 85 %)
+        run: cd data && uv run pytest --cov-report=xml
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
-          path: services/api/coverage.xml
+          path: |
+            services/api/coverage.xml
+            data/coverage.xml
 
   security:
     name: Sécurité des dépendances et du code
@@ -88,25 +105,51 @@ jobs:
           ./gitleaks git . --redact --verbose
 
   docker:
-    name: Build & scan de l'image
+    name: Build & scan de l'image (${{ matrix.image }})
     runs-on: ubuntu-latest
     needs: [quality, tests]
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: services/api/Dockerfile
+            skip-dirs: ""
+          - image: data
+            dockerfile: data/Dockerfile
+            # Jars Java embarqués par PySpark : mis à jour avec Spark, pas un par un.
+            # Ils sont analysés à part, pour information (voir ADR 0009).
+            skip-dirs: /app/.venv/lib/python3.12/site-packages/pyspark/jars
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
           context: .
-          file: services/api/Dockerfile
-          tags: internflow-api:ci
+          file: ${{ matrix.dockerfile }}
+          tags: internflow-${{ matrix.image }}:ci
           load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Scan de vulnérabilités (Trivy)
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Test de fumée de l'image data (Java, pilote JDBC lisible, CLI)
+        if: matrix.image == 'data'
+        run: |
+          docker run --rm --entrypoint sh internflow-data:ci -c \
+            'java -version && test -r "$INTERNFLOW_DATA_JDBC_DRIVER_JAR" && internflow-data --help'
+      - name: Scan de vulnérabilités bloquant (système + Python)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: internflow-api:ci
+          image-ref: internflow-${{ matrix.image }}:ci
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          skip-dirs: ${{ matrix.skip-dirs }}
           exit-code: "1"
+      - name: Rapport informatif sur les jars de Spark
+        if: matrix.image == 'data'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: internflow-data:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"

@@ -54,5 +54,31 @@ services:
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]
 
+  # Traitements de données, lancés à la demande (profil « tools ») :
+  #   docker compose run --rm data seed
+  #   docker compose run --rm data pipeline
+  data:
+    build:
+      context: .
+      dockerfile: data/Dockerfile
+    profiles: [tools]
+    environment:
+      # `seed` écrit via la couche de persistance de l'API (SQLAlchemy)…
+      INTERNFLOW_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-internflow}
+      # … et `pipeline` lit PostgreSQL avec Spark (JDBC).
+      INTERNFLOW_DATA_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-internflow}
+      INTERNFLOW_DATA_JDBC_USER: ${POSTGRES_USER}
+      INTERNFLOW_DATA_JDBC_PASSWORD: ${POSTGRES_PASSWORD}
+      # Obligatoire (16 caractères min.) : sans lui, le pipeline refuse de démarrer.
+      # Pas de « :? » ici, sinon `docker compose up` exigerait ce secret pour l'API aussi.
+      INTERNFLOW_DATA_PSEUDONYMIZATION_SALT: ${INTERNFLOW_DATA_PSEUDONYMIZATION_SALT:-}
+      INTERNFLOW_DATA_SPARK_MASTER: ${INTERNFLOW_DATA_SPARK_MASTER:-local[*]}
+    volumes:
+      - ./data/lake:/lake   # bronze / silver / gold, consultables depuis l'hôte
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    security_opt: ["no-new-privileges:true"]
+
 volumes:
   postgres-data:
