@@ -42,7 +42,7 @@ flowchart TB
 
 | Conteneur | État |
 |-----------|------|
-| API FastAPI | ✅ Stagiaires, Encadrants, Stages, Authentification et rôles |
+| API FastAPI | ✅ Stagiaires, encadrants, stages, rôles, tâches et rapports hebdomadaires |
 | PostgreSQL | ✅ Phase 1 |
 | Jobs PySpark + MinIO + Airflow | ⏳ Phase 2 |
 | Modèle de matching (MLlib + MLflow) | ⏳ Phase 3 |
