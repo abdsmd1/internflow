@@ -18,11 +18,13 @@ from internflow_api.application.internships import (
     ListInternships,
     PlanInternship,
 )
+from internflow_api.application.reports import ListReports, ReviewReport, SubmitReport
 from internflow_api.application.supervisors import (
     GetSupervisor,
     ListSupervisors,
     RegisterSupervisor,
 )
+from internflow_api.application.tasks import ChangeTaskStatus, CreateTask, ListTasks
 from internflow_api.application.users import Authenticate, CreateUserAccount, RegisterUser
 from internflow_api.domain.ports.clock import Clock
 from internflow_api.domain.ports.security import PasswordHasher, TokenService
@@ -106,3 +108,29 @@ def create_user_account_use_case(
     uow: UowDep, clock: ClockDep, hasher: HasherDep
 ) -> CreateUserAccount:
     return CreateUserAccount(RegisterUser(uow, clock, hasher))
+
+
+# ---------------------------------------------------------------------- tâches
+def create_task_use_case(uow: UowDep, clock: ClockDep) -> CreateTask:
+    return CreateTask(uow, clock)
+
+
+def list_tasks_use_case(uow: UowDep, clock: ClockDep) -> ListTasks:
+    return ListTasks(uow, clock)
+
+
+def change_task_status_use_case(uow: UowDep, clock: ClockDep) -> ChangeTaskStatus:
+    return ChangeTaskStatus(uow, clock)
+
+
+# ------------------------------------------------------------ rapports hebdo
+def submit_report_use_case(uow: UowDep, clock: ClockDep) -> SubmitReport:
+    return SubmitReport(uow, clock)
+
+
+def list_reports_use_case(uow: UowDep) -> ListReports:
+    return ListReports(uow)
+
+
+def review_report_use_case(uow: UowDep, clock: ClockDep) -> ReviewReport:
+    return ReviewReport(uow, clock)

@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId, InternshipStatus
+from internflow_api.domain.report import IsoWeek, ReportId, ReportStatus, WeeklyReport
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.task import Task, TaskId, TaskStatus
 from internflow_api.domain.user import Role, User, UserId
 from internflow_api.domain.value_objects import Email, PersonName, StudyLevel
 from internflow_api.infrastructure.persistence.orm import (
     InternRecord,
     InternshipRecord,
     SupervisorRecord,
+    TaskRecord,
     UserRecord,
+    WeeklyReportRecord,
 )
 
 
@@ -111,4 +115,66 @@ def record_to_user(record: UserRecord) -> User:
         supervisor_id=SupervisorId(record.supervisor_id) if record.supervisor_id else None,
         is_active=record.is_active,
         created_at=record.created_at,
+    )
+
+
+def task_to_record(task: Task) -> TaskRecord:
+    record = TaskRecord(id=task.id, created_by=task.created_by, created_at=task.created_at)
+    update_task_record(record, task)
+    return record
+
+
+def update_task_record(record: TaskRecord, task: Task) -> None:
+    record.internship_id = task.internship_id
+    record.title = task.title
+    record.description = task.description
+    record.due_date = task.due_date
+    record.status = task.status.value
+    record.completed_at = task.completed_at
+
+
+def record_to_task(record: TaskRecord) -> Task:
+    return Task(
+        id=TaskId(record.id),
+        internship_id=InternshipId(record.internship_id),
+        title=record.title,
+        description=record.description,
+        due_date=record.due_date,
+        status=TaskStatus(record.status),
+        created_by=UserId(record.created_by),
+        created_at=record.created_at,
+        completed_at=record.completed_at,
+    )
+
+
+def report_to_record(report: WeeklyReport) -> WeeklyReportRecord:
+    record = WeeklyReportRecord(id=report.id, submitted_at=report.submitted_at)
+    update_report_record(record, report)
+    return record
+
+
+def update_report_record(record: WeeklyReportRecord, report: WeeklyReport) -> None:
+    record.internship_id = report.internship_id
+    record.iso_year = report.week.year
+    record.iso_week = report.week.week
+    record.accomplishments = report.accomplishments
+    record.difficulties = report.difficulties
+    record.next_steps = report.next_steps
+    record.status = report.status.value
+    record.feedback = report.feedback
+    record.reviewed_at = report.reviewed_at
+
+
+def record_to_report(record: WeeklyReportRecord) -> WeeklyReport:
+    return WeeklyReport(
+        id=ReportId(record.id),
+        internship_id=InternshipId(record.internship_id),
+        week=IsoWeek(record.iso_year, record.iso_week),
+        accomplishments=record.accomplishments,
+        difficulties=record.difficulties,
+        next_steps=record.next_steps,
+        status=ReportStatus(record.status),
+        feedback=record.feedback,
+        submitted_at=record.submitted_at,
+        reviewed_at=record.reviewed_at,
     )

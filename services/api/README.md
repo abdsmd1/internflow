@@ -45,6 +45,13 @@ Les sondes `/health/*` restent publiques. Droits par rôle : voir
 | `POST` | `/api/v1/internships/{id}/start` | Démarrer (à partir de la date de début) |
 | `POST` | `/api/v1/internships/{id}/complete` | Terminer un stage en cours |
 | `POST` | `/api/v1/internships/{id}/cancel` | Annuler un stage prévu ou en cours |
+| `POST` | `/api/v1/internships/{id}/tasks` | Confier une tâche (encadrant du stage ou RH) |
+| `GET` | `/api/v1/internships/{id}/tasks` | Tâches du stage, par échéance (avec `is_overdue`) |
+| `POST` | `/api/v1/tasks/{id}/start` | Commencer une tâche |
+| `POST` | `/api/v1/tasks/{id}/complete` | Terminer une tâche |
+| `POST` | `/api/v1/internships/{id}/reports` | Déposer le rapport d'une semaine ISO, ex. `2026-W41` (stagiaire) |
+| `GET` | `/api/v1/internships/{id}/reports` | Rapports du stage, semaine la plus récente d'abord |
+| `POST` | `/api/v1/reports/{id}/review` | Relire un rapport avec un retour (encadrant du stage ou RH) |
 | `GET` | `/health/live` | Sonde de vivacité |
 | `GET` | `/health/ready` | Sonde de disponibilité (vérifie PostgreSQL) |
 

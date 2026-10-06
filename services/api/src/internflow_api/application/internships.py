@@ -79,6 +79,20 @@ class PlanInternship:
         return internship
 
 
+def load_visible_internship(
+    uow: UnitOfWork, actor: Principal, internship_id: InternshipId
+) -> Internship:
+    """Charge un stage que l'appelant a le droit de voir (sinon : introuvable).
+
+    À appeler à l'intérieur d'un bloc `with uow`.
+    """
+    internship = uow.internships.get(internship_id)
+    if internship is None:
+        raise InternshipNotFoundError(internship_id)
+    ensure_can_view_internship(actor, internship)
+    return internship
+
+
 class GetInternship:
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow

@@ -33,7 +33,15 @@ from internflow_api.presentation.errors import register_exception_handlers
 from internflow_api.presentation.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from internflow_api.presentation.routers import health
 from internflow_api.presentation.routers.health import ReadinessCheck
-from internflow_api.presentation.routers.v1 import auth, interns, internships, supervisors, users
+from internflow_api.presentation.routers.v1 import (
+    auth,
+    interns,
+    internships,
+    reports,
+    supervisors,
+    tasks,
+    users,
+)
 
 
 def _database_readiness(engine: Engine) -> ReadinessCheck:
@@ -110,12 +118,21 @@ def create_app(
     )
     register_exception_handlers(app)
 
-    api_v1 = APIRouter(prefix="/api/v1")
+    # Réponses communes à toutes les routes protégées, documentées dans OpenAPI.
+    api_v1 = APIRouter(
+        prefix="/api/v1",
+        responses={
+            401: {"description": "Jeton absent, invalide ou expiré (RFC 9457)"},
+            403: {"description": "Action non autorisée pour ce rôle (RFC 9457)"},
+        },
+    )
     api_v1.include_router(auth.router)
     api_v1.include_router(users.router)
     api_v1.include_router(interns.router)
     api_v1.include_router(supervisors.router)
     api_v1.include_router(internships.router)
+    api_v1.include_router(tasks.router)
+    api_v1.include_router(reports.router)
     app.include_router(api_v1)
     app.include_router(health.router)
     return app

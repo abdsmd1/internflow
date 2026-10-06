@@ -9,6 +9,11 @@
 | Lister / consulter les stages       | ✅ | les siens          | les siens        |
 | Démarrer / terminer un stage        | ✅ | les siens          | ❌               |
 | Annuler un stage                    | ✅ | ❌                 | ❌               |
+| Créer une tâche                     | ✅ | sur ses stages     | ❌               |
+| Faire avancer une tâche             | ✅ | sur ses stages     | les siennes      |
+| Déposer un rapport hebdomadaire     | ❌ | ❌                 | sur son stage    |
+| Relire un rapport                   | ✅ | sur ses stages     | ❌               |
+| Consulter tâches et rapports        | ✅ | sur ses stages     | les siens        |
 
 Choix de sécurité : une ressource que l'appelant n'a pas le droit de **voir** est
 signalée comme introuvable (404) plutôt qu'interdite (403), pour ne pas révéler
@@ -66,10 +71,22 @@ def scope_internship_filter(actor: Principal, criteria: InternshipFilter) -> Int
             return replace(criteria, intern_id=actor.intern_id)
 
 
-def ensure_can_progress_internship(actor: Principal, internship: Internship) -> None:
-    """Démarrer / terminer : RH, ou l'encadrant du stage."""
+def ensure_can_supervise(actor: Principal, internship: Internship) -> None:
+    """Actions d'encadrement (faire avancer le stage, créer des tâches, relire les
+    rapports) : RH, ou l'encadrant du stage."""
     ensure_can_view_internship(actor, internship)
     require_role(actor, Role.HR, Role.SUPERVISOR)
+
+
+def ensure_can_progress_internship(actor: Principal, internship: Internship) -> None:
+    """Démarrer / terminer un stage."""
+    ensure_can_supervise(actor, internship)
+
+
+def ensure_can_submit_report(actor: Principal, internship: Internship) -> None:
+    """Le rapport hebdomadaire est rédigé par le stagiaire lui-même."""
+    ensure_can_view_internship(actor, internship)
+    require_role(actor, Role.INTERN)
 
 
 def ensure_can_cancel_internship(actor: Principal, internship: Internship) -> None:

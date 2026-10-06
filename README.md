@@ -3,7 +3,7 @@
 Plateforme de gestion automatisée des stagiaires : recrutement, suivi, évaluation,
 analytique (PySpark) et assistant IA.
 
-> **Phase 2 — en cours :** stagiaires, encadrants, stages et authentification par rôles ; les tâches arrivent ensuite.
+> **Phase 2 — terminée :** stagiaires, encadrants, stages, authentification par rôles, tâches et rapports hebdomadaires. Prochaine étape : pipelines PySpark.
 
 ## Démarrage rapide
 
@@ -87,10 +87,10 @@ Pour lancer les tests d'intégration contre une base existante :
 ## Feuille de route
 
 1. ✅ Socle, module Stagiaires
-2. 🔄 Phase 2
+2. ✅ Phase 2
    - ✅ Encadrants et stages (machine à états, contraintes d'intégrité) — [ADR 0006](docs/adr/0006-stages-machine-a-etats-et-integrite.md)
    - ✅ Authentification JWT + rôles (RH, encadrant, stagiaire) — [ADR 0007](docs/adr/0007-authentification-jwt-et-roles.md)
-   - ⏳ Tâches et rapports hebdomadaires
+   - ✅ Tâches et rapports hebdomadaires — [ADR 0008](docs/adr/0008-taches-et-rapports-hebdomadaires.md)
 3. ⏳ Pipelines PySpark (bronze / silver / gold) orchestrés par Airflow
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)
 5. ⏳ Agent IA (LangGraph, RAG sur pgvector, validation humaine)

@@ -6,7 +6,9 @@ from typing import Protocol
 
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId, InternshipStatus
+from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
+from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User
 from internflow_api.domain.value_objects import Email
 
@@ -87,4 +89,30 @@ class UserRepository(Protocol):
         self, *, intern_id: InternId | None = None, supervisor_id: SupervisorId | None = None
     ) -> bool:
         """Un compte est-il déjà rattaché à ce profil stagiaire / encadrant ?"""
+        ...
+
+
+class TaskRepository(Protocol):
+    def add(self, task: Task) -> None: ...
+
+    def get(self, task_id: TaskId) -> Task | None: ...
+
+    def save(self, task: Task) -> None: ...
+
+    def list_for_internship(self, internship_id: InternshipId) -> Sequence[Task]:
+        """Tâches d'un stage, par échéance croissante."""
+        ...
+
+
+class WeeklyReportRepository(Protocol):
+    def add(self, report: WeeklyReport) -> None: ...
+
+    def get(self, report_id: ReportId) -> WeeklyReport | None: ...
+
+    def save(self, report: WeeklyReport) -> None: ...
+
+    def exists_for_week(self, internship_id: InternshipId, week: IsoWeek) -> bool: ...
+
+    def list_for_internship(self, internship_id: InternshipId) -> Sequence[WeeklyReport]:
+        """Rapports d'un stage, de la semaine la plus récente à la plus ancienne."""
         ...
