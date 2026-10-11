@@ -1,11 +1,12 @@
 # Commandes unifiées : la CI exécute exactement les mêmes cibles que le développeur.
 .DEFAULT_GOAL := help
 API := services/api
+AGENT := services/agent
 WEB := frontend
 DATA := data
 INTERNS ?= 200
 
-.PHONY: help install lint format typecheck test test-unit test-integration test-data test-web openapi check up down logs migrate migration create-hr seed pipeline clean
+.PHONY: help install lint format typecheck test test-unit test-integration test-data test-web test-agent eval-agent openapi check up down logs migrate migration create-hr seed pipeline clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -25,6 +26,7 @@ format: ## Formate et corrige automatiquement
 
 typecheck: ## Vérification des types (mypy strict)
 	cd $(API) && uv run mypy
+	cd $(AGENT) && uv run mypy
 	cd $(DATA) && uv run mypy
 
 test-unit: ## Tests rapides (sans base de données)
@@ -42,11 +44,18 @@ test-data: ## Tests du pipeline PySpark (Java 17+ requis, sinon passer par Docke
 test-web: ## Lint, typage et tests du frontend React
 	cd $(WEB) && npm run lint && npm run typecheck && npm test
 
-openapi: ## Régénère le contrat OpenAPI et les types TypeScript du frontend
+test-agent: ## Tests de l'assistant IA (modèle simulé, sans Ollama)
+	cd $(AGENT) && uv run pytest
+
+eval-agent: ## Évalue l'assistant avec le vrai modèle (Ollama démarré)
+	docker compose --profile ai run --rm agent internflow-agent-eval
+
+openapi: ## Régénère les contrats OpenAPI et les types TypeScript du frontend
 	cd $(API) && uv run python -m internflow_api.cli export-openapi --output openapi.json
+	cd $(AGENT) && uv run python -m internflow_agent.openapi_export openapi.json
 	cd $(WEB) && npm run gen:api
 
-check: lint typecheck test test-data test-web ## Tout ce que la CI vérifie
+check: lint typecheck test test-data test-web test-agent ## Tout ce que la CI vérifie
 
 up: ## Démarre l'environnement local (PostgreSQL + migrations + API)
 	docker compose up --build -d
