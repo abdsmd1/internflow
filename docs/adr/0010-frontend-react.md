@@ -48,7 +48,9 @@ code FastAPI ──export──► services/api/openapi.json ──openapi-types
 - **Jeton en `sessionStorage`** : il disparaît à la fermeture de l'onglet. Un 401 de
   l'API efface la session et ramène à la connexion. À la déconnexion, tout le cache
   est vidé pour qu'aucune donnée ne passe d'un utilisateur à l'autre.
-- Image **nginx sans root**, système de fichiers en lecture seule dans Compose.
+- Image **Alpine + nginx sans root**, système de fichiers en lecture seule dans Compose.
+  Le paquet nginx d'Alpine est préféré à l'image officielle `nginx-unprivileged:1.28` :
+  le scan Trivy y a trouvé 10 failles (dont une critique) déjà corrigées chez Alpine.
 
 ### Qualité
 
