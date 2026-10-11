@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
 
 import { Layout } from "./components/Layout";
+import { AssistantPage } from "./pages/AssistantPage";
 import { RequireAuth } from "./components/RequireAuth";
 import { InternsPage } from "./pages/InternsPage";
 import { InternshipPage } from "./pages/internship/InternshipPage";
@@ -20,6 +21,7 @@ export function App() {
           <Route path="stages/:internshipId" element={<InternshipPage />} />
           <Route path="stagiaires" element={<InternsPage />} />
           <Route path="encadrants" element={<SupervisorsPage />} />
+          <Route path="assistant" element={<AssistantPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

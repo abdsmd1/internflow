@@ -658,3 +658,103 @@ textarea {
     transform: translateY(-4px);
   }
 }
+
+/* ---------------------------------------------------------------- assistant */
+
+.assistant {
+  display: grid;
+  gap: calc(var(--space) * 2);
+  max-width: 52rem;
+}
+.assistant .page-header {
+  margin-bottom: 0;
+}
+
+.chat {
+  display: grid;
+  gap: calc(var(--space) * 1.5);
+  align-content: start;
+  min-height: 18rem;
+}
+.chat__intro p {
+  margin-top: 0;
+  color: var(--ink-soft);
+}
+
+.message {
+  max-width: 85%;
+  padding: calc(var(--space) * 1.5) calc(var(--space) * 2);
+  border-radius: var(--radius-m);
+}
+.message p {
+  margin: 0;
+}
+.message--user {
+  justify-self: end;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.message--assistant {
+  justify-self: start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.message__author {
+  font-size: 0.875rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.message__text {
+  white-space: pre-line;
+}
+.message__sources {
+  margin-top: var(--space) !important;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+/* Une proposition d'action se distingue d'un message : elle attend une décision. */
+.proposal {
+  justify-self: start;
+  max-width: 85%;
+  padding: calc(var(--space) * 2);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-m);
+  background: var(--accent-soft);
+}
+.proposal h2 {
+  font-size: 1rem;
+}
+.proposal dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(var(--space) / 2) calc(var(--space) * 2);
+  margin: calc(var(--space) * 1.5) 0;
+}
+.proposal dt {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.proposal dd {
+  margin: 0;
+}
+.proposal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space);
+}
+
+.chat__hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.chat__form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space);
+  align-items: end;
+  position: sticky;
+  bottom: 0;
+  padding: calc(var(--space) * 1.5) 0;
+  background: var(--canvas);
+}

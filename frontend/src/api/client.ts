@@ -2,6 +2,7 @@ import createClient, { type Middleware } from "openapi-fetch";
 
 import { SESSION_EXPIRED_EVENT, session } from "../auth/session";
 import { toApiError } from "./problem";
+import type { paths as agentPaths } from "./agent-schema";
 import type { paths } from "./schema";
 
 const LOGIN_PATH = "/api/v1/auth/token";
@@ -31,6 +32,13 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 api.use(auth);
+
+// L'assistant est un service séparé, servi sur la même origine (/api/v1/agent).
+export const agentApi = createClient<agentPaths>({
+  baseUrl: window.location.origin,
+  fetch: (request) => globalThis.fetch(request),
+});
+agentApi.use(auth);
 
 interface FetchResult<T> {
   data?: T;
