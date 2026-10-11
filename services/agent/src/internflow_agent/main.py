@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
@@ -21,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from internflow_agent import __version__
 from internflow_agent.api_client import ApiCallError, ApiUnreachableError, HttpInternFlowApi
 from internflow_agent.config import AgentSettings, get_settings
-from internflow_agent.llm import build_chat_model
+from internflow_agent.llm import build_chat_model, warm_up
 from internflow_agent.service import (
     AgentError,
     AgentReply,
@@ -146,8 +147,13 @@ def create_app(
     settings = settings or get_settings()
     http = httpx.Client(base_url=settings.api_url, timeout=settings.api_timeout_seconds)
 
+    chat_model = model or build_chat_model(settings)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if model is None and settings.llm_warmup:
+            # En arrière-plan : le service répond tout de suite, le modèle se charge.
+            threading.Thread(target=warm_up, args=(chat_model,), daemon=True).start()
         yield
         http.close()
 
@@ -155,7 +161,7 @@ def create_app(
         return datetime.now(UTC).date()
 
     service = AgentService(
-        model or build_chat_model(settings),
+        chat_model,
         api_factory or (lambda token: HttpInternFlowApi(http, token)),
         # Conversations en mémoire : perdues au redémarrage (voir ADR 0011).
         InMemorySaver(),

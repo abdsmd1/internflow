@@ -26,7 +26,7 @@ docker compose run --rm data pipeline    # bronze → silver → gold dans data/
 
 Détails : [`data/README.md`](data/README.md).
 
-Assistant IA (modèle local Ollama, ~5 Go téléchargés au premier lancement) :
+Assistant IA (modèle local Ollama, ~2 Go téléchargés au premier lancement) :
 
 ```bash
 docker compose --profile ai up -d        # puis page « Assistant » sur http://localhost:8080

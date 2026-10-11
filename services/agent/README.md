@@ -11,7 +11,7 @@ l'[ADR 0011](../../docs/adr/0011-agent-ia-langgraph.md).
 docker compose --profile ai up -d    # Ollama + téléchargement du modèle + assistant
 ```
 
-Le premier lancement télécharge le modèle (environ 5 Go). Ouvrez ensuite
+Le premier lancement télécharge le modèle (environ 2 Go). Ouvrez ensuite
 http://localhost:8080, page **Assistant**.
 
 ## Fonctionnement
@@ -37,7 +37,9 @@ Interface ──► nginx ──► agent ──(jeton de l'utilisateur)──�
 |----------|--------|------|
 | `API_URL` | `http://localhost:8000` | API InternFlow |
 | `LLM_PROVIDER` | `ollama` | `ollama` ou `anthropic` (dépendance optionnelle) |
-| `LLM_MODEL` | `qwen2.5:7b` | modèle utilisé |
+| `LLM_MODEL` | `qwen2.5:3b` | modèle utilisé (`qwen2.5:7b` : meilleur, plus lourd) |
+| `LLM_KEEP_ALIVE` | `30m` | durée pendant laquelle Ollama garde le modèle en mémoire |
+| `LLM_CONTEXT_TOKENS` | `4096` | taille du contexte envoyé au modèle |
 | `OLLAMA_URL` | `http://localhost:11434` | serveur Ollama |
 | `MAX_STEPS` | `8` | allers-retours modèle ↔ outils par message |
 

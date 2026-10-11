@@ -52,8 +52,13 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
 
 ### Modèle : Ollama par défaut
 
-- **Ollama + `qwen2.5:7b`** : modèle libre, exécuté en local, gratuit, sans envoyer
+- **Ollama + `qwen2.5:3b`** : modèle libre, exécuté en local, gratuit, sans envoyer
   de données personnelles à un tiers. Il gère l'appel d'outils et le français.
+  Le premier essai avec `qwen2.5:7b` sur un portable (Docker limité à 7,6 Go)
+  dépassait 3 minutes par réponse : le modèle 3B est donc le défaut, le 7B une option.
+- Réglages pour le processeur : modèle gardé en mémoire 30 min, chargé dès le
+  démarrage du service, contexte de 4 096 jetons, réponses de 512 jetons au plus,
+  résultats d'outils limités à 15 lignes.
 - Le fournisseur est configurable (`INTERNFLOW_AGENT_LLM_PROVIDER=anthropic`, avec la
   dépendance optionnelle) sans toucher au graphe.
 
@@ -84,7 +89,8 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
 - ✅ Aucune écriture sans accord explicite ; le parcours est testé de bout en bout.
 - ⚠️ Conversations en mémoire (`InMemorySaver`) : perdues au redémarrage du service,
   et limitées à une seule instance. Un checkpointer PostgreSQL lèvera ces limites.
-- ⚠️ Sur processeur, un modèle 7B répond en plusieurs secondes, voire une minute ;
-  `qwen2.5:3b` est plus rapide mais moins fiable dans le choix des outils.
+- ⚠️ Sur processeur, les réponses prennent de quelques secondes à plusieurs minutes ;
+  Ollama installé directement sur Windows (avec la carte graphique) est bien plus
+  rapide que dans Docker, et reste utilisable via `INTERNFLOW_AGENT_OLLAMA_URL`.
 - ⚠️ Pas encore de RAG vectoriel (pgvector) : les rapports sont lus par l'outil
   `lire_rapports`, suffisant tant qu'on interroge un stage à la fois.

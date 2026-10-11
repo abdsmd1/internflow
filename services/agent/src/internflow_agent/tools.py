@@ -22,7 +22,7 @@ STATUS_LABELS = {
     "cancelled": "annulé",
 }
 TASK_LABELS = {"todo": "à faire", "in_progress": "en cours", "done": "terminée"}
-MAX_LINES = 40
+MAX_LINES = 15  # un petit modèle local lit lentement : on reste bref
 
 
 def _guard(func: Callable[..., str]) -> Callable[..., str]:

@@ -19,10 +19,18 @@ class AgentSettings(BaseSettings):
     api_timeout_seconds: float = Field(default=10, gt=0, le=60)
 
     # Ollama par défaut : modèle libre, exécuté en local, sans clé ni coût.
+    # qwen2.5:3b (~2 Go) tient dans un portable ; qwen2.5:7b est meilleur mais lourd.
     llm_provider: Literal["ollama", "anthropic"] = "ollama"
-    llm_model: str = "qwen2.5:7b"
+    llm_model: str = "qwen2.5:3b"
     ollama_url: str = "http://localhost:11434"
-    llm_timeout_seconds: float = Field(default=180, gt=0)
+    llm_timeout_seconds: float = Field(default=300, gt=0)
+    # Garde le modèle en mémoire entre deux questions (le recharger prend du temps).
+    llm_keep_alive: str = "30m"
+    # Contexte et réponse bornés : moins de mémoire, réponses plus rapides sur processeur.
+    llm_context_tokens: int = Field(default=4096, ge=2048, le=32768)
+    llm_max_answer_tokens: int = Field(default=512, ge=64, le=4096)
+    # Charge le modèle au démarrage, pour que la première question ne paie pas ce coût.
+    llm_warmup: bool = True
 
     # Garde-fou : nombre maximal d'allers-retours modèle ↔ outils par message.
     max_steps: int = Field(default=8, ge=2, le=20)

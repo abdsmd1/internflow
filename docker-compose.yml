@@ -70,7 +70,7 @@ services:
 
   # Assistant IA (profil « ai ») : docker compose --profile ai up -d
   # Ollama exécute le modèle de langage en local ; le premier lancement télécharge
-  # le modèle (environ 5 Go), conservé ensuite dans le volume ollama-models.
+  # le modèle (environ 2 Go), conservé ensuite dans le volume ollama-models.
   ollama:
     image: ollama/ollama:0.12.6
     profiles: [ai]
@@ -87,7 +87,7 @@ services:
   ollama-pull:
     image: ollama/ollama:0.12.6
     profiles: [ai]
-    command: ["pull", "${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:7b}"]
+    command: ["pull", "${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:3b}"]
     environment:
       OLLAMA_HOST: http://ollama:11434
     depends_on:
@@ -102,8 +102,10 @@ services:
     restart: unless-stopped
     environment:
       INTERNFLOW_AGENT_API_URL: http://api:8000
-      INTERNFLOW_AGENT_OLLAMA_URL: http://ollama:11434
-      INTERNFLOW_AGENT_LLM_MODEL: ${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:7b}
+      INTERNFLOW_AGENT_LLM_MODEL: ${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:3b}
+      # Ollama installé directement sur Windows (plus rapide, utilise la carte
+      # graphique) : INTERNFLOW_AGENT_OLLAMA_URL=http://host.docker.internal:11434
+      INTERNFLOW_AGENT_OLLAMA_URL: ${INTERNFLOW_AGENT_OLLAMA_URL:-http://ollama:11434}
     depends_on:
       api:
         condition: service_healthy

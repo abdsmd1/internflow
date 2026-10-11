@@ -35,8 +35,8 @@ def test_empty_results_are_explicit() -> None:
 def test_long_lists_are_truncated() -> None:
     many = [dict(FakeApi("x").internships[0], id=f"stage-{i}") for i in range(45)]
     result = tools_for(FakeApi("jeton-rh", internships=many))["lister_stages"].invoke({})
-    assert result.count("\n") == 40
-    assert result.endswith("… et 5 de plus.")
+    assert result.count("\n") == 15
+    assert result.endswith("… et 30 de plus.")
 
 
 def test_internship_overview() -> None:

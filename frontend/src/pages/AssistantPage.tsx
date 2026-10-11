@@ -189,7 +189,11 @@ export function AssistantPage() {
           </article>
         )}
 
-        {busy && <p className="loading">L'assistant réfléchit… (jusqu'à une minute en local)</p>}
+        {busy && (
+          <p className="loading">
+            L'assistant réfléchit… (parfois plusieurs minutes avec un modèle local sur processeur)
+          </p>
+        )}
         {error && (
           <p role="alert" className="alert">
             {assistantError(error)}
