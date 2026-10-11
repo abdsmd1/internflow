@@ -84,6 +84,31 @@ jobs:
             services/api/coverage.xml
             data/coverage.xml
 
+  frontend:
+    name: Frontend (lint, typage, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Types TypeScript à jour avec le contrat OpenAPI
+        run: npm run gen:api && git diff --exit-code -- src/api/schema.d.ts
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Tests avec couverture (seuil 80 %)
+        run: npm test
+      - run: npm run build
+      - name: Vulnérabilités connues des dépendances livrées (npm audit)
+        run: npm audit --omit=dev --audit-level=high
+
   security:
     name: Sécurité des dépendances et du code
     runs-on: ubuntu-latest
@@ -107,16 +132,22 @@ jobs:
   docker:
     name: Build & scan de l'image (${{ matrix.image }})
     runs-on: ubuntu-latest
-    needs: [quality, tests]
+    needs: [quality, tests, frontend]
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
           - image: api
+            context: .
             dockerfile: services/api/Dockerfile
             skip-dirs: ""
+          - image: web
+            context: frontend
+            dockerfile: frontend/Dockerfile
+            skip-dirs: ""
           - image: data
+            context: .
             dockerfile: data/Dockerfile
             # Jars Java embarqués par PySpark : mis à jour avec Spark, pas un par un.
             # Ils sont analysés à part, pour information (voir ADR 0009).
@@ -126,7 +157,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           tags: internflow-${{ matrix.image }}:ci
           load: true
@@ -137,7 +168,14 @@ jobs:
         run: |
           docker run --rm --entrypoint sh internflow-data:ci -c \
             'java -version && test -r "$INTERNFLOW_DATA_JDBC_DRIVER_JAR" && internflow-data --help'
-      - name: Scan de vulnérabilités bloquant (système + Python)
+      - name: Test de fumée de l'image web (nginx démarre et sert l'application)
+        if: matrix.image == 'web'
+        run: |
+          docker run -d --name web --read-only --tmpfs /tmp --add-host api:127.0.0.1 -p 8080:8080 internflow-web:ci
+          for i in $(seq 1 10); do curl -fsS http://localhost:8080/healthz && break; sleep 1; done
+          curl -fsS http://localhost:8080/stages | grep -q '<div id="root">'
+          curl -fsSI http://localhost:8080/ | grep -qi "content-security-policy"
+      - name: Scan de vulnérabilités bloquant (système + dépendances)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: internflow-${{ matrix.image }}:ci
