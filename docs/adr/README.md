@@ -15,5 +15,6 @@ acceptation : si la décision change, on écrit un nouvel ADR qui remplace l'anc
 | [0007](0007-authentification-jwt-et-roles.md) | Authentification JWT et contrôle d'accès par rôles | Accepté |
 | [0008](0008-taches-et-rapports-hebdomadaires.md) | Tâches et rapports hebdomadaires | Accepté |
 | [0009](0009-pipeline-pyspark-medaillon.md) | Pipeline PySpark en architecture médaillon | Accepté |
+| [0010](0010-frontend-react.md) | Frontend React typé par le contrat OpenAPI | Accepté |
 
 Modèle pour un nouvel ADR : copier [`template.md`](template.md).
