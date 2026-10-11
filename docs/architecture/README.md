@@ -47,7 +47,7 @@ flowchart TB
 | Jobs PySpark (bronze / silver / gold sur disque local) | ✅ Phase 3 |
 | MinIO + Airflow | ⏳ Phase 3 |
 | Modèle de matching (MLlib + MLflow) | ⏳ Phase 4 |
-| Agent IA | ⏳ Phase 5 |
+| Agent IA (LangGraph + Ollama) | ✅ Questions, propositions de tâches validées par l'utilisateur |
 | Frontend React (nginx) | ✅ Stages, tâches, rapports, stagiaires, encadrants |
 
 ## Niveau 3 — Composants du service API
