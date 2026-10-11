@@ -54,6 +54,20 @@ services:
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]
 
+  # Interface web : fichiers React servis par nginx, qui relaie /api vers l'API.
+  web:
+    build:
+      context: frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+
   # Traitements de données, lancés à la demande (profil « tools ») :
   #   docker compose run --rm data seed
   #   docker compose run --rm data pipeline

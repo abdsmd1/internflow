@@ -13,3 +13,6 @@ indent_size = 2
 
 [Makefile]
 indent_style = tab
+
+[frontend/**.{ts,tsx,js,css,html}]
+indent_size = 2

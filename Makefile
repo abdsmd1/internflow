@@ -1,16 +1,18 @@
 # Commandes unifiées : la CI exécute exactement les mêmes cibles que le développeur.
 .DEFAULT_GOAL := help
 API := services/api
+WEB := frontend
 DATA := data
 INTERNS ?= 200
 
-.PHONY: help install lint format typecheck test test-unit test-integration test-data check up down logs migrate migration create-hr seed pipeline clean
+.PHONY: help install lint format typecheck test test-unit test-integration test-data test-web openapi check up down logs migrate migration create-hr seed pipeline clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 install: ## Installe les dépendances et les hooks Git
 	uv sync --all-packages
+	cd $(WEB) && npm ci
 	uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 
 lint: ## Analyse statique (Ruff)
@@ -37,10 +39,18 @@ test: ## Toute la suite de tests avec couverture
 test-data: ## Tests du pipeline PySpark (Java 17+ requis, sinon passer par Docker)
 	cd $(DATA) && uv run pytest
 
-check: lint typecheck test test-data ## Tout ce que la CI vérifie
+test-web: ## Lint, typage et tests du frontend React
+	cd $(WEB) && npm run lint && npm run typecheck && npm test
+
+openapi: ## Régénère le contrat OpenAPI et les types TypeScript du frontend
+	cd $(API) && uv run python -m internflow_api.cli export-openapi --output openapi.json
+	cd $(WEB) && npm run gen:api
+
+check: lint typecheck test test-data test-web ## Tout ce que la CI vérifie
 
 up: ## Démarre l'environnement local (PostgreSQL + migrations + API)
 	docker compose up --build -d
+	@echo "Application : http://localhost:$${WEB_PORT:-8080}"
 	@echo "API : http://localhost:$${API_PORT:-8000}/docs"
 
 down: ## Arrête l'environnement local

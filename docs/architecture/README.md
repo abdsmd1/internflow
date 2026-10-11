@@ -30,7 +30,7 @@ flowchart TB
     spark[Jobs PySpark<br/><i>data/</i>]
     airflow[Airflow]
 
-    front -->|HTTPS / JSON| api
+    front -->|HTTPS / JSON<br/>via nginx, même origine| api
     front -->|chat| agent
     agent -->|appelle l'API<br/>avec son propre rôle| api
     api --> db
@@ -48,7 +48,7 @@ flowchart TB
 | MinIO + Airflow | ⏳ Phase 3 |
 | Modèle de matching (MLlib + MLflow) | ⏳ Phase 4 |
 | Agent IA | ⏳ Phase 5 |
-| Frontend | ⏳ Phase 6 |
+| Frontend React (nginx) | ✅ Stages, tâches, rapports, stagiaires, encadrants |
 
 ## Niveau 3 — Composants du service API
 
