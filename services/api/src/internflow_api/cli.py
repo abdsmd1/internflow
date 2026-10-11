@@ -6,6 +6,9 @@ Créer le premier compte RH :
 Le mot de passe est demandé de façon masquée, ou lu dans la variable
 INTERNFLOW_BOOTSTRAP_PASSWORD (utile en automatisation). Il n'existe aucun
 compte ni mot de passe par défaut.
+
+Mettre à jour le contrat OpenAPI utilisé par le frontend :
+    python -m internflow_api.cli export-openapi --output openapi.json
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ import getpass
 import os
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from sqlalchemy.orm import sessionmaker
 
@@ -58,7 +62,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     create = commands.add_parser("create-hr-user", help="Créer un compte RH")
     create.add_argument("--email", required=True)
+    export = commands.add_parser("export-openapi", help="Écrire le contrat OpenAPI")
+    export.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
+
+    if args.command == "export-openapi":
+        # Import tardif : la création de compte n'a pas besoin de charger toute l'API.
+        from internflow_api.openapi_export import render_openapi  # noqa: PLC0415
+
+        # Écrit en UTF-8 quel que soit le système (une redirection PowerShell ne le garantit pas).
+        args.output.write_text(render_openapi(), encoding="utf-8")
+        print(f"Contrat OpenAPI écrit dans {args.output}")
+        return 0
 
     if args.command == "create-hr-user":
         try:
