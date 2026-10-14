@@ -29,9 +29,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ensuite hors ligne (pas d'accès réseau au démarrage, image reproductible).
 FROM builder AS model
 ARG EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+# chmod : certains fichiers du cache Hugging Face sont créés en 600 (lisibles par
+# root seulement) ; l'utilisateur `app` doit pouvoir tous les lire.
 RUN /app/.venv/bin/python -c \
     "import sys; from fastembed import TextEmbedding; TextEmbedding(sys.argv[1], cache_dir='/models')" \
-    "$EMBEDDING_MODEL"
+    "$EMBEDDING_MODEL" \
+ && chmod -R a+rX /models
 
 # ---------------------------------------------------------------- runtime
 FROM python:${PYTHON_VERSION}-slim AS runtime
