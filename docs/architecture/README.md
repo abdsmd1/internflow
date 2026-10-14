@@ -42,12 +42,12 @@ flowchart TB
 
 | Conteneur | État |
 |-----------|------|
-| API FastAPI | ✅ Stagiaires, encadrants, stages, rôles, tâches et rapports hebdomadaires |
-| PostgreSQL | ✅ Phase 1 |
+| API FastAPI | ✅ Stagiaires, encadrants, stages, rôles, tâches, rapports hebdomadaires et recherche sémantique |
+| PostgreSQL + pgvector | ✅ Données métier et vecteurs des passages de rapports (ADR 0012) |
 | Jobs PySpark (bronze / silver / gold sur disque local) | ✅ Phase 3 |
 | MinIO + Airflow | ⏳ Phase 3 |
 | Modèle de matching (MLlib + MLflow) | ⏳ Phase 4 |
-| Agent IA (LangGraph + Ollama) | ✅ Questions, propositions de tâches validées par l'utilisateur |
+| Agent IA (LangGraph, Groq ou Ollama) | ✅ Questions, RAG sur les rapports, propositions de tâches validées par l'utilisateur |
 | Frontend React (nginx) | ✅ Stages, tâches, rapports, stagiaires, encadrants |
 
 ## Niveau 3 — Composants du service API

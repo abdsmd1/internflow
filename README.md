@@ -3,7 +3,7 @@
 Plateforme de gestion automatisée des stagiaires : recrutement, suivi, évaluation,
 analytique (PySpark) et assistant IA.
 
-> **En cours :** assistant IA (LangGraph + Ollama) qui répond aux questions et propose des actions validées par l'utilisateur.
+> **Nouveau :** recherche sémantique dans les rapports (RAG avec pgvector) : l'assistant retrouve qui a parlé de quoi, et cite ses sources.
 
 ## Démarrage rapide
 
@@ -22,6 +22,7 @@ Indicateurs avec PySpark (après avoir défini `INTERNFLOW_DATA_PSEUDONYMIZATION
 ```bash
 docker compose run --rm data seed        # données fictives réalistes
 docker compose run --rm data pipeline    # bronze → silver → gold dans data/lake/
+docker compose run --rm api python -m internflow_api.cli reindex-reports   # index de recherche
 ```
 
 Détails : [`data/README.md`](data/README.md).
@@ -132,7 +133,8 @@ Pour lancer les tests d'intégration contre une base existante :
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)
 5. ⏳ Agent IA
    - ✅ Assistant LangGraph (Groq ou Ollama), droits de l'utilisateur, validation humaine, évaluations — [ADR 0011](docs/adr/0011-agent-ia-langgraph.md)
-   - ⏳ RAG sur pgvector, conversations persistantes
+   - ✅ RAG : recherche sémantique dans les rapports (pgvector, modèle local multilingue) — [ADR 0012](docs/adr/0012-recherche-semantique-rapports-pgvector.md)
+   - ⏳ Conversations persistantes (checkpointer PostgreSQL)
 6. ⏳ Frontend et observabilité
    - ✅ Interface React typée par le contrat OpenAPI — [ADR 0010](docs/adr/0010-frontend-react.md)
    - ⏳ Observabilité (OpenTelemetry, Grafana)
