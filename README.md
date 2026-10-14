@@ -26,10 +26,11 @@ docker compose run --rm data pipeline    # bronze → silver → gold dans data/
 
 Détails : [`data/README.md`](data/README.md).
 
-Assistant IA (modèle local Ollama, ~2 Go téléchargés au premier lancement) :
+Assistant IA (clé Groq gratuite dans `.env`, ou modèle local Ollama) :
 
 ```bash
-docker compose --profile ai up -d        # puis page « Assistant » sur http://localhost:8080
+docker compose --profile ai up -d                    # API cloud (Groq)
+docker compose --profile ai --profile ollama up -d   # modèle local
 ```
 
 Détails : [`services/agent/README.md`](services/agent/README.md).
@@ -130,7 +131,7 @@ Pour lancer les tests d'intégration contre une base existante :
    - ⏳ Orchestration Airflow, stockage MinIO
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)
 5. ⏳ Agent IA
-   - ✅ Assistant LangGraph + Ollama, droits de l'utilisateur, validation humaine, évaluations — [ADR 0011](docs/adr/0011-agent-ia-langgraph.md)
+   - ✅ Assistant LangGraph (Groq ou Ollama), droits de l'utilisateur, validation humaine, évaluations — [ADR 0011](docs/adr/0011-agent-ia-langgraph.md)
    - ⏳ RAG sur pgvector, conversations persistantes
 6. ⏳ Frontend et observabilité
    - ✅ Interface React typée par le contrat OpenAPI — [ADR 0010](docs/adr/0010-frontend-react.md)

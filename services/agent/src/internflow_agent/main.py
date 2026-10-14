@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import httpx
+import structlog
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -30,6 +31,8 @@ from internflow_agent.service import (
     ApiFactory,
     UnauthenticatedError,
 )
+
+logger = structlog.get_logger(__name__)
 
 PROBLEM_BASE = "https://internflow.dev/problems/"
 MAX_MESSAGE_LENGTH = 2000
@@ -151,6 +154,13 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # Configuration effective, visible dès le démarrage (jamais la clé).
+        logger.info(
+            "agent_config",
+            provider=settings.llm_provider,
+            model=settings.llm_model,
+            api_url=settings.api_url,
+        )
         if model is None and settings.llm_warmup:
             # En arrière-plan : le service répond tout de suite, le modèle se charge.
             threading.Thread(target=warm_up, args=(chat_model,), daemon=True).start()

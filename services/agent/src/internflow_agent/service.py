@@ -21,7 +21,7 @@ from langgraph.types import Command
 
 from internflow_agent.api_client import ApiCallError, InternFlowApi
 from internflow_agent.graph import AgentGraph, build_graph
-from internflow_agent.llm import MODEL_UNAVAILABLE_ERRORS
+from internflow_agent.llm import MODEL_UNAVAILABLE_ERRORS, describe
 from internflow_agent.tools import build_tools
 
 logger = structlog.get_logger(__name__)
@@ -155,10 +155,10 @@ class AgentService:
         except GraphRecursionError:
             return AgentReply(thread_id=thread_id, reply=TOO_LONG)
         except MODEL_UNAVAILABLE_ERRORS as error:
-            logger.warning("model_unavailable", error=type(error).__name__)
+            logger.warning("model_unavailable", error=type(error).__name__, detail=describe(error))
             raise ModelUnavailableError(
-                "Le modèle de langage ne répond pas : vérifiez qu'Ollama est démarré "
-                "et que le modèle est téléchargé."
+                "Le modèle de langage ne répond pas : vérifiez qu'Ollama est démarré et le "
+                "modèle téléchargé, ou, avec une API cloud, la clé et le quota gratuit."
             ) from error
 
         new_messages = result.value["messages"][before:]
