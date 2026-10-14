@@ -6,15 +6,18 @@ Ils implémentent exactement les mêmes ports que les adaptateurs PostgreSQL.
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable, Iterable
+import math
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from types import TracebackType
 from typing import Self
 
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId
-from internflow_api.domain.ports.repositories import InternshipFilter, Page
+from internflow_api.domain.ports.repositories import IndexedPassage, InternshipFilter, Page
+from internflow_api.domain.ports.search import Vector
 from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
+from internflow_api.domain.report_search import SearchHit
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
 from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User, UserId
@@ -50,6 +53,7 @@ class _Store:
     users: dict[UserId, User] = field(default_factory=dict)
     tasks: dict[TaskId, Task] = field(default_factory=dict)
     reports: dict[ReportId, WeeklyReport] = field(default_factory=dict)
+    passages: dict[ReportId, list[IndexedPassage]] = field(default_factory=dict)
 
 
 class InMemoryInternRepository:
@@ -186,6 +190,56 @@ class InMemoryWeeklyReportRepository:
         matching = [r for r in self._items.values() if r.internship_id == internship_id]
         return [copy.deepcopy(r) for r in sorted(matching, key=lambda r: r.week, reverse=True)]
 
+    def list_ids(self) -> list[ReportId]:
+        ordered = sorted(self._items.values(), key=lambda r: (r.submitted_at, str(r.id)))
+        return [r.id for r in ordered]
+
+
+def _cosine(a: Vector, b: Vector) -> float:
+    norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
+    return sum(x * y for x, y in zip(a, b, strict=True)) / norm if norm else 0.0
+
+
+class InMemoryReportPassageRepository:
+    def __init__(
+        self,
+        items: dict[ReportId, list[IndexedPassage]],
+        internships: dict[InternshipId, Internship],
+    ) -> None:
+        self._items = items
+        self._internships = internships
+
+    def replace_for_report(self, report_id: ReportId, passages: Sequence[IndexedPassage]) -> None:
+        self._items[report_id] = list(passages)
+
+    def _in_scope(self, internship_id: InternshipId, scope: InternshipFilter) -> bool:
+        internship = self._internships.get(internship_id)
+        return internship is not None and (
+            (scope.intern_id is None or internship.intern_id == scope.intern_id)
+            and (scope.supervisor_id is None or internship.supervisor_id == scope.supervisor_id)
+            and (scope.status is None or internship.status is scope.status)
+        )
+
+    def search(
+        self,
+        query: Vector,
+        scope: InternshipFilter,
+        *,
+        internship_id: InternshipId | None,
+        limit: int,
+        min_score: float,
+    ) -> list[SearchHit]:
+        hits = [
+            SearchHit(p.passage, _cosine(query, p.embedding))
+            for passages in self._items.values()
+            for p in passages
+            if self._in_scope(p.passage.internship_id, scope)
+            and (internship_id is None or p.passage.internship_id == internship_id)
+        ]
+        hits = [h for h in hits if h.score >= min_score]
+        hits.sort(key=lambda h: (-h.score, str(h.passage.report_id), h.passage.position))
+        return hits[:limit]
+
 
 class InMemoryUnitOfWork:
     """Simule une transaction : rien n'est visible des autres sans `commit()`."""
@@ -203,6 +257,7 @@ class InMemoryUnitOfWork:
         self._users = InMemoryUserRepository(store.users)
         self._tasks = InMemoryTaskRepository(store.tasks)
         self._reports = InMemoryWeeklyReportRepository(store.reports)
+        self._passages = InMemoryReportPassageRepository(store.passages, store.internships)
 
     @property
     def interns(self) -> InMemoryInternRepository:
@@ -227,6 +282,10 @@ class InMemoryUnitOfWork:
     @property
     def reports(self) -> InMemoryWeeklyReportRepository:
         return self._reports
+
+    @property
+    def passages(self) -> InMemoryReportPassageRepository:
+        return self._passages
 
     def __enter__(self) -> Self:
         self.committed = False

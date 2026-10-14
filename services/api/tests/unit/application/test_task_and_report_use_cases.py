@@ -11,6 +11,7 @@ from internflow_api.application.internships import (
     PlanInternship,
     PlanInternshipCommand,
 )
+from internflow_api.application.report_search import ReportIndexer
 from internflow_api.application.reports import (
     ListReports,
     ReviewReport,
@@ -42,7 +43,9 @@ from internflow_api.domain.user import Principal, Role, UserId
 from internflow_api.domain.value_objects import StudyLevel
 from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWork
 from tests.factories import HR, FakeClock
+from tests.fake_embedder import KeywordEmbedder
 
+INDEXER = ReportIndexer(KeywordEmbedder())
 WEEK_40 = IsoWeek(2026, 40)  # du 28 septembre au 4 octobre : le stage commence le 1er
 
 
@@ -103,7 +106,7 @@ def create_task(s: Setup, actor: Principal, due: date = date(2026, 10, 15)) -> T
 
 
 def submit(s: Setup, actor: Principal, week: IsoWeek = WEEK_40) -> WeeklyReport:
-    return SubmitReport(s.uow, s.clock).execute(
+    return SubmitReport(s.uow, s.clock, INDEXER).execute(
         actor, SubmitReportCommand(s.internship, week, "Prise en main du projet.")
     )
 
@@ -171,11 +174,11 @@ class TestTasks:
 
 class TestReports:
     def test_intern_submits_and_supervisor_reviews(self, setup: Setup) -> None:
-        report = SubmitReport(setup.uow, setup.clock).execute(
+        report = SubmitReport(setup.uow, setup.clock, INDEXER).execute(
             setup.intern,
             SubmitReportCommand(setup.internship, WEEK_40, "Prise en main", "Accès VPN", "Schéma"),
         )
-        reviewed = ReviewReport(setup.uow, setup.clock).execute(
+        reviewed = ReviewReport(setup.uow, setup.clock, INDEXER).execute(
             setup.supervisor, report.id, "Bon début."
         )
         assert reviewed.status is ReportStatus.REVIEWED
@@ -200,12 +203,14 @@ class TestReports:
     def test_intern_cannot_review(self, setup: Setup) -> None:
         report = submit(setup, setup.intern)
         with pytest.raises(PermissionDeniedError):
-            ReviewReport(setup.uow, setup.clock).execute(setup.intern, report.id, "Auto-éloge")
+            ReviewReport(setup.uow, setup.clock, INDEXER).execute(
+                setup.intern, report.id, "Auto-éloge"
+            )
 
     def test_outsider_supervisor_cannot_find_the_report(self, setup: Setup) -> None:
         report = submit(setup, setup.intern)
         with pytest.raises(ReportNotFoundError):
-            ReviewReport(setup.uow, setup.clock).execute(
+            ReviewReport(setup.uow, setup.clock, INDEXER).execute(
                 setup.outsider_supervisor,
                 report.id,
                 "Intrusion",
@@ -213,7 +218,7 @@ class TestReports:
 
     def test_review_is_final(self, setup: Setup) -> None:
         report = submit(setup, setup.intern)
-        review = ReviewReport(setup.uow, setup.clock)
+        review = ReviewReport(setup.uow, setup.clock, INDEXER)
         review.execute(setup.supervisor, report.id, "OK")
         with pytest.raises(InvalidStatusTransitionError):
             review.execute(HR, report.id, "Encore")

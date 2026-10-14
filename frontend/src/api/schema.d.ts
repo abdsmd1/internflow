@@ -198,6 +198,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/reports/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Recherche sémantique dans les rapports visibles par l'appelant
+     * @description Retrouve les passages de rapports dont le **sens** est proche de la question, même sans mot commun. Les droits habituels s'appliquent : un encadrant ne cherche que dans les stages qu'il encadre, un stagiaire dans les siens.
+     */
+    get: operations["search_reports_api_v1_reports_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/reports/{report_id}/review": {
     parameters: {
       query?: never;
@@ -600,6 +620,48 @@ export interface components {
        */
       feedback: string;
     };
+    /**
+     * ReportSearchHit
+     * @description Passage d'un rapport proche de la question posée.
+     */
+    ReportSearchHit: {
+      /**
+       * Excerpt
+       * @description Texte du passage, tel que rédigé dans le rapport.
+       */
+      excerpt: string;
+      /**
+       * Internship Id
+       * Format: uuid
+       */
+      internship_id: string;
+      /**
+       * Report Id
+       * Format: uuid
+       */
+      report_id: string;
+      /**
+       * Score
+       * @description Similarité cosinus : plus elle est proche de 1, plus le sens est proche.
+       */
+      score: number;
+      section: components["schemas"]["ReportSection"];
+      /**
+       * Section Label
+       * @example Difficultés
+       */
+      section_label: string;
+      /**
+       * Week
+       * @example 2026-W41
+       */
+      week: string;
+    };
+    /**
+     * ReportSection
+     * @enum {string}
+     */
+    ReportSection: "accomplishments" | "difficulties" | "next_steps" | "feedback";
     /**
      * ReportStatus
      * @enum {string}
@@ -1631,6 +1693,69 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
         };
+      };
+    };
+  };
+  search_reports_api_v1_reports_search_get: {
+    parameters: {
+      query: {
+        /** @description Question ou thème recherché. */
+        q: string;
+        /** @description Limiter à un stage. */
+        internship_id?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportSearchHit"][];
+        };
+      };
+      /** @description Jeton absent, invalide ou expiré (RFC 9457) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Action non autorisée pour ce rôle (RFC 9457) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stage introuvable (filtre `internship_id`) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Modèle d'embeddings indisponible (RFC 9457) */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

@@ -15,13 +15,23 @@ WORKDIR /app
 # 1) Dépendances seules : couche mise en cache tant que le lock ne change pas.
 COPY uv.lock pyproject.toml ./
 COPY services/api/pyproject.toml services/api/README.md services/api/
+# Extra « search » : modèle d'embeddings local (FastEmbed / ONNX Runtime).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-workspace --package internflow-api
+    uv sync --frozen --no-dev --no-install-workspace --package internflow-api --extra search
 
 # 2) Code applicatif.
 COPY services/api/ services/api/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --package internflow-api
+    uv sync --frozen --no-dev --no-editable --package internflow-api --extra search
+
+# ---------------------------------------------------------------- modèle
+# Le modèle d'embeddings est téléchargé AU BUILD, dans sa propre étape : l'API le lit
+# ensuite hors ligne (pas d'accès réseau au démarrage, image reproductible).
+FROM builder AS model
+ARG EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+RUN /app/.venv/bin/python -c \
+    "import sys; from fastembed import TextEmbedding; TextEmbedding(sys.argv[1], cache_dir='/models')" \
+    "$EMBEDDING_MODEL"
 
 # ---------------------------------------------------------------- runtime
 FROM python:${PYTHON_VERSION}-slim AS runtime
@@ -34,12 +44,18 @@ RUN apt-get update \
  && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home app
 
+ARG EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    INTERNFLOW_EMBEDDING_MODEL=${EMBEDDING_MODEL} \
+    INTERNFLOW_EMBEDDING_CACHE_DIR=/opt/models \
+    HF_HUB_OFFLINE=1
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Lecture seule pour l'application : le modèle n'est jamais modifié à l'exécution.
+COPY --from=model /models /opt/models
 # Migrations embarquées pour pouvoir lancer `alembic upgrade head` depuis l'image.
 COPY --chown=app:app services/api/alembic.ini ./alembic.ini
 COPY --chown=app:app services/api/migrations ./migrations

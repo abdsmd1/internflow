@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from types import TracebackType
 from typing import Self
 
-from sqlalchemy import Engine, Select, create_engine, func, select
+from sqlalchemy import Engine, Select, create_engine, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -25,8 +26,10 @@ from internflow_api.domain.internship import (
     Internship,
     InternshipId,
 )
-from internflow_api.domain.ports.repositories import InternshipFilter, Page
+from internflow_api.domain.ports.repositories import IndexedPassage, InternshipFilter, Page
+from internflow_api.domain.ports.search import Vector
 from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
+from internflow_api.domain.report_search import ReportPassage, ReportSection, SearchHit
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
 from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User
@@ -58,6 +61,7 @@ from internflow_api.infrastructure.persistence.orm import (
     USER_SUPERVISOR_UNIQUE_CONSTRAINT,
     InternRecord,
     InternshipRecord,
+    ReportPassageRecord,
     SupervisorRecord,
     TaskRecord,
     UserRecord,
@@ -320,6 +324,93 @@ class SqlAlchemyWeeklyReportRepository:
         ).all()
         return [record_to_report(r) for r in records]
 
+    def list_ids(self) -> list[ReportId]:
+        ids = self._session.scalars(
+            select(WeeklyReportRecord.id).order_by(
+                WeeklyReportRecord.submitted_at, WeeklyReportRecord.id
+            )
+        ).all()
+        return [ReportId(i) for i in ids]
+
+
+class SqlAlchemyReportPassageRepository:
+    """Index des passages dans PostgreSQL avec l'extension pgvector."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def replace_for_report(self, report_id: ReportId, passages: Sequence[IndexedPassage]) -> None:
+        self._session.execute(
+            delete(ReportPassageRecord).where(ReportPassageRecord.report_id == report_id)
+        )
+        self._session.add_all(
+            ReportPassageRecord(
+                report_id=report_id,
+                section=p.passage.section.value,
+                position=p.passage.position,
+                content=p.passage.content,
+                embedding=p.embedding,
+                embedding_model=p.model,
+            )
+            for p in passages
+        )
+        _flush(self._session, {})
+
+    def search(
+        self,
+        query: Vector,
+        scope: InternshipFilter,
+        *,
+        internship_id: InternshipId | None,
+        limit: int,
+        min_score: float,
+    ) -> list[SearchHit]:
+        # Distance cosinus (opérateur <=> de pgvector) : 0 = même sens, 2 = opposé.
+        distance = ReportPassageRecord.embedding.cosine_distance(query).label("distance")
+        stmt = (
+            select(
+                ReportPassageRecord,
+                WeeklyReportRecord.internship_id,
+                WeeklyReportRecord.iso_year,
+                WeeklyReportRecord.iso_week,
+                distance,
+            )
+            .join(WeeklyReportRecord, WeeklyReportRecord.id == ReportPassageRecord.report_id)
+            .join(InternshipRecord, InternshipRecord.id == WeeklyReportRecord.internship_id)
+            .where(distance <= 1 - min_score)
+        )
+        # Les droits sont appliqués DANS la requête : un passage hors périmètre
+        # n'est jamais lu, même pour être écarté ensuite.
+        if scope.intern_id is not None:
+            stmt = stmt.where(InternshipRecord.intern_id == scope.intern_id)
+        if scope.supervisor_id is not None:
+            stmt = stmt.where(InternshipRecord.supervisor_id == scope.supervisor_id)
+        if scope.status is not None:
+            stmt = stmt.where(InternshipRecord.status == scope.status.value)
+        if internship_id is not None:
+            stmt = stmt.where(WeeklyReportRecord.internship_id == internship_id)
+        stmt = stmt.order_by(
+            distance,
+            ReportPassageRecord.report_id,
+            ReportPassageRecord.section,
+            ReportPassageRecord.position,
+        ).limit(limit)
+
+        return [
+            SearchHit(
+                passage=ReportPassage(
+                    report_id=ReportId(record.report_id),
+                    internship_id=InternshipId(stage),
+                    week=IsoWeek(year, week),
+                    section=ReportSection(record.section),
+                    position=record.position,
+                    content=record.content,
+                ),
+                score=1 - float(dist),
+            )
+            for record, stage, year, week, dist in self._session.execute(stmt).all()
+        ]
+
 
 class SqlAlchemyUnitOfWork:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
@@ -354,6 +445,10 @@ class SqlAlchemyUnitOfWork:
     @property
     def reports(self) -> SqlAlchemyWeeklyReportRepository:
         return SqlAlchemyWeeklyReportRepository(self._require_session())
+
+    @property
+    def passages(self) -> SqlAlchemyReportPassageRepository:
+        return SqlAlchemyReportPassageRepository(self._require_session())
 
     def __enter__(self) -> Self:
         self._session = self._session_factory()

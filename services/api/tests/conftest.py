@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWork
 from internflow_api.infrastructure.security.argon2_hasher import Argon2PasswordHasher
 from tests.factories import HR_EMAIL, FakeClock, fast_hasher
+from tests.fake_embedder import KeywordEmbedder
 from tests.helpers import authenticated, build_client
 
 
@@ -29,10 +30,18 @@ def hasher() -> Argon2PasswordHasher:
 
 
 @pytest.fixture
+def embedder() -> KeywordEmbedder:
+    return KeywordEmbedder()
+
+
+@pytest.fixture
 def anonymous_client(
-    uow: InMemoryUnitOfWork, clock: FakeClock, hasher: Argon2PasswordHasher
+    uow: InMemoryUnitOfWork,
+    clock: FakeClock,
+    hasher: Argon2PasswordHasher,
+    embedder: KeywordEmbedder,
 ) -> Iterator[TestClient]:
-    with build_client(uow, clock, hasher) as test_client:
+    with build_client(uow, clock, hasher, embedder) as test_client:
         yield test_client
 
 

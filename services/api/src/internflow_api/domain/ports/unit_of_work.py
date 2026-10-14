@@ -6,6 +6,7 @@ from typing import Protocol, Self
 from internflow_api.domain.ports.repositories import (
     InternRepository,
     InternshipRepository,
+    ReportPassageRepository,
     SupervisorRepository,
     TaskRepository,
     UserRepository,
@@ -44,6 +45,9 @@ class UnitOfWork(Protocol):
 
     @property
     def reports(self) -> WeeklyReportRepository: ...
+
+    @property
+    def passages(self) -> ReportPassageRepository: ...
 
     def __enter__(self) -> Self: ...
 

@@ -1,7 +1,8 @@
 """Configuration centralisée, lue depuis l'environnement (12-Factor, facteur III).
 
-Deux niveaux, selon le principe du moindre privilège :
+Plusieurs niveaux, selon le principe du moindre privilège :
 - `DatabaseSettings` : juste ce qu'il faut pour les migrations et la ligne de commande ;
+- `EmbeddingSettings` : le modèle de la recherche sémantique (réindexation en CLI) ;
 - `Settings` : la configuration complète de l'API (dont le secret de signature JWT).
 """
 
@@ -38,7 +39,16 @@ class DatabaseSettings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1, le=50)
 
 
-class Settings(DatabaseSettings):
+class EmbeddingSettings(BaseSettings):
+    """Modèle d'embeddings local de la recherche dans les rapports (ADR 0012)."""
+
+    model_config = _MODEL_CONFIG
+
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_cache_dir: str | None = None  # défaut : cache de FastEmbed
+
+
+class Settings(DatabaseSettings, EmbeddingSettings):
     model_config = _MODEL_CONFIG
 
     environment: Environment = Environment.LOCAL
@@ -48,6 +58,10 @@ class Settings(DatabaseSettings):
     # Aucun défaut : l'API refuse de démarrer sans secret (pas de secret faible oublié).
     jwt_secret: SecretStr = Field(min_length=32)
     access_token_ttl_minutes: int = Field(default=30, ge=5, le=24 * 60)
+
+    # Recherche sémantique dans les rapports (voir ADR 0012).
+    embedding_warmup: bool = True  # charge le modèle au démarrage, en arrière-plan
+    search_min_score: float = Field(default=0.3, ge=0, le=1)
 
     @property
     def is_production(self) -> bool:

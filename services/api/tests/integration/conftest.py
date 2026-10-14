@@ -62,7 +62,7 @@ def database_url() -> Iterator[str]:
         pytest.skip("Ni Docker ni INTERNFLOW_TEST_DATABASE_URL : tests d'intégration ignorés.")
     from testcontainers.postgres import PostgresContainer  # noqa: PLC0415
 
-    with PostgresContainer("postgres:16-alpine", driver="psycopg") as postgres:
+    with PostgresContainer("pgvector/pgvector:0.8.7-pg16", driver="psycopg") as postgres:
         yield postgres.get_connection_url()
 
 
@@ -79,5 +79,8 @@ def _clean_tables(engine: Engine) -> Iterator[None]:
     yield
     with engine.begin() as connection:  # isolation entre tests
         connection.execute(
-            text("TRUNCATE weekly_reports, tasks, users, internships, supervisors, interns")
+            text(
+                "TRUNCATE report_passages, weekly_reports, tasks, users, internships,"
+                " supervisors, interns"
+            )
         )
