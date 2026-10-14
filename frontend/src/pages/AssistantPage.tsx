@@ -16,6 +16,7 @@ const SUGGESTIONS = [
   "Quelles tâches sont en retard ?",
   "Quels rapports dois-je relire ?",
   "Liste les stages en cours.",
+  "Qui a eu des difficultés avec Docker ?",
 ];
 
 /** Noms des outils de l'agent, tels qu'un utilisateur les comprend. */
@@ -25,6 +26,7 @@ const TOOL_LABELS: Record<string, string> = {
   taches_en_retard: "tâches en retard",
   rapports_a_relire: "rapports à relire",
   lire_rapports: "contenu des rapports",
+  rechercher_dans_rapports: "recherche dans les rapports",
   proposer_tache: "création de tâche",
 };
 

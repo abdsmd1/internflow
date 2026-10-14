@@ -39,6 +39,7 @@ Interface ──► nginx ──► agent ──(jeton de l'utilisateur)──�
 | `taches_en_retard` | tâches en retard sur les stages en cours |
 | `rapports_a_relire` | rapports déposés mais pas encore relus |
 | `lire_rapports` | contenu des rapports d'un stage (balisé comme donnée non fiable) |
+| `rechercher_dans_rapports` | **RAG** : passages de rapports proches de la question, tous stages visibles, avec leur source |
 | `proposer_tache` | **écriture** : s'arrête et attend la confirmation de l'utilisateur |
 
 ## Configuration (préfixe `INTERNFLOW_AGENT_`)

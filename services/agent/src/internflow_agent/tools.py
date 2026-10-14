@@ -1,6 +1,8 @@
 """Outils mis à la disposition du modèle.
 
 Les outils de lecture renvoient un texte compact, facile à exploiter pour un LLM.
+`rechercher_dans_rapports` est la partie « RAG » : l'API retrouve les passages de
+rapports proches de la question (pgvector), le modèle s'en sert pour répondre.
 Le seul outil d'écriture (`proposer_tache`) suspend le graphe : rien n'est créé
 tant qu'un humain n'a pas confirmé.
 """
@@ -23,6 +25,7 @@ STATUS_LABELS = {
 }
 TASK_LABELS = {"todo": "à faire", "in_progress": "en cours", "done": "terminée"}
 MAX_LINES = 15  # un petit modèle local lit lentement : on reste bref
+SEARCH_RESULTS = 6
 
 
 def _guard(func: Callable[..., str]) -> Callable[..., str]:
@@ -44,34 +47,61 @@ def untrusted(text: str) -> str:
     return f"<donnees>{cleaned}</donnees>"
 
 
-def build_tools(api: InternFlowApi) -> list[BaseTool]:
-    names: dict[str, str] = {}
+class _Names:
+    """Noms des personnes, mis en cache le temps d'une conversation."""
 
-    def person(kind: str, person_id: str) -> str:
+    def __init__(self, api: InternFlowApi) -> None:
+        self._api = api
+        self._cache: dict[str, str] = {}
+
+    def of(self, kind: str, person_id: str) -> str:
         key = f"{kind}:{person_id}"
-        if key not in names:
+        if key not in self._cache:
             try:
-                data = (api.get_intern if kind == "intern" else api.get_supervisor)(person_id)
-                names[key] = f"{data['first_name']} {data['last_name']}"
+                fetch = self._api.get_intern if kind == "intern" else self._api.get_supervisor
+                data = fetch(person_id)
+                self._cache[key] = f"{data['first_name']} {data['last_name']}"
             except ApiCallError:
-                names[key] = "inconnu"
-        return names[key]
+                self._cache[key] = "inconnu"
+        return self._cache[key]
 
-    def describe(internship: JsonObject) -> str:
+    def describe(self, internship: JsonObject) -> str:
         return (
             f"{internship['id']} | {internship['subject']} | "
-            f"stagiaire : {person('intern', internship['intern_id'])} | "
-            f"encadrant : {person('supervisor', internship['supervisor_id'])} | "
+            f"stagiaire : {self.of('intern', internship['intern_id'])} | "
+            f"encadrant : {self.of('supervisor', internship['supervisor_id'])} | "
             f"{internship['start_date']} → {internship['end_date']} | "
             f"{STATUS_LABELS.get(internship['status'], internship['status'])}"
         )
 
-    def truncated(lines: list[str], empty: str) -> str:
-        if not lines:
-            return empty
-        extra = len(lines) - MAX_LINES
-        shown = lines[:MAX_LINES]
-        return "\n".join(shown + ([f"… et {extra} de plus."] if extra > 0 else []))
+
+def _truncated(lines: list[str], empty: str) -> str:
+    if not lines:
+        return empty
+    extra = len(lines) - MAX_LINES
+    shown = lines[:MAX_LINES]
+    return "\n".join(shown + ([f"… et {extra} de plus."] if extra > 0 else []))
+
+
+def _search_results(api: InternFlowApi, names: _Names, hits: list[JsonObject]) -> str:
+    """Passages trouvés, chacun avec sa source (le modèle doit pouvoir la citer)."""
+    internships: dict[str, JsonObject] = {}
+    lines = []
+    for hit in hits:
+        stage = hit["internship_id"]
+        if stage not in internships:
+            internships[stage] = api.get_internship(stage)
+        lines.append(
+            f"- semaine {hit['week']} | stage {stage} | "
+            f"stagiaire : {names.of('intern', internships[stage]['intern_id'])} | "
+            f"{hit['section_label']} (pertinence {hit['score']:.2f}) : "
+            f"{untrusted(hit['excerpt'])}"
+        )
+    return "\n".join(lines)
+
+
+def build_tools(api: InternFlowApi) -> list[BaseTool]:
+    names = _Names(api)
 
     @tool
     @_guard
@@ -82,7 +112,7 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
         ou cancelled (annulé). Chaque ligne commence par l'identifiant du stage.
         """
         internships = api.list_internships(statut)
-        return truncated([describe(i) for i in internships], "Aucun stage trouvé.")
+        return _truncated([names.describe(i) for i in internships], "Aucun stage trouvé.")
 
     @tool
     @_guard
@@ -100,7 +130,7 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
         to_review = sum(1 for r in reports if r["status"] == "submitted")
         return "\n".join(
             [
-                describe(internship),
+                names.describe(internship),
                 f"Tâches ({len(tasks)}) :",
                 *(task_lines or ["- aucune"]),
                 f"Rapports : {len(reports)} déposés, dont {to_review} à relire.",
@@ -118,9 +148,9 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
                     lines.append(
                         f"- {task['title']} (échéance {task['due_date']}) | "
                         f"stage {internship['id']} « {internship['subject']} » | "
-                        f"stagiaire : {person('intern', internship['intern_id'])}"
+                        f"stagiaire : {names.of('intern', internship['intern_id'])}"
                     )
-        return truncated(lines, "Aucune tâche en retard.")
+        return _truncated(lines, "Aucune tâche en retard.")
 
     @tool
     @_guard
@@ -133,10 +163,10 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
                     lines.append(
                         f"- semaine {report['week']} | stage {internship['id']} "
                         f"« {internship['subject']} » | "
-                        f"stagiaire : {person('intern', internship['intern_id'])} | "
-                        f"encadrant : {person('supervisor', internship['supervisor_id'])}"
+                        f"stagiaire : {names.of('intern', internship['intern_id'])} | "
+                        f"encadrant : {names.of('supervisor', internship['supervisor_id'])}"
                     )
-        return truncated(lines, "Aucun rapport en attente de relecture.")
+        return _truncated(lines, "Aucun rapport en attente de relecture.")
 
     @tool
     @_guard
@@ -154,6 +184,23 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
             )
             blocks.append(f"Semaine {report['week']} ({report['status']}) :\n{untrusted(content)}")
         return "\n\n".join(blocks)
+
+    @tool
+    @_guard
+    def rechercher_dans_rapports(question: str, stage_id: str | None = None) -> str:
+        """Recherche par le sens dans le contenu des rapports hebdomadaires.
+
+        À utiliser pour les questions sur ce que racontent les rapports, tous stages
+        confondus : difficultés rencontrées, technologies, blocages, retours des
+        encadrants (ex. « qui a eu des problèmes avec Docker ? »).
+        question : la question ou le thème, en quelques mots.
+        stage_id (facultatif) : limiter la recherche à un stage.
+        Chaque résultat indique sa source : semaine, stage, stagiaire et section.
+        """
+        hits = api.search_reports(question, stage_id, SEARCH_RESULTS)
+        if not hits:
+            return "Aucun passage de rapport ne correspond à cette recherche."
+        return _search_results(api, names, hits)
 
     @tool
     @_guard
@@ -184,5 +231,6 @@ def build_tools(api: InternFlowApi) -> list[BaseTool]:
         taches_en_retard,
         rapports_a_relire,
         lire_rapports,
+        rechercher_dans_rapports,
         proposer_tache,
     ]

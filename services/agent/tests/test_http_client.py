@@ -32,6 +32,7 @@ def test_forwards_the_user_token_and_parses_json() -> None:
             "/api/v1/internships/s/reports": [],
             "/api/v1/interns/i": {"first_name": "A"},
             "/api/v1/supervisors/p": {"first_name": "B"},
+            "/api/v1/reports/search": [{"excerpt": "Docker"}],
         }
         if request.method == "POST":
             return httpx.Response(201, json=json.loads(request.content))
@@ -48,8 +49,13 @@ def test_forwards_the_user_token_and_parses_json() -> None:
     created = api.create_task("s", title="T", description="", due_date="2026-10-30")
     assert created == {"title": "T", "description": "", "due_date": "2026-10-30"}
 
+    assert api.search_reports("Docker") == [{"excerpt": "Docker"}]
+    assert api.search_reports("Docker", "s", limit=3) == [{"excerpt": "Docker"}]
+
     assert {r.headers["Authorization"] for r in seen} == {"Bearer jeton"}
     assert seen[1].url.params["status"] == "ongoing"
+    assert dict(seen[-2].url.params) == {"q": "Docker", "limit": "5"}
+    assert dict(seen[-1].url.params) == {"q": "Docker", "limit": "3", "internship_id": "s"}
 
 
 def test_problem_details_become_api_errors() -> None:
