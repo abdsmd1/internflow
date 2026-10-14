@@ -24,7 +24,7 @@ pytestmark = pytest.mark.integration
 API_ROOT = Path(__file__).resolve().parents[3] / "services" / "api"
 TODAY = "2026-10-06"
 SALT = "sel-integration-0123456789"
-TABLES = "weekly_reports, tasks, users, internships, supervisors, interns"
+TABLES = "report_passages, weekly_reports, tasks, users, internships, supervisors, interns"
 PII_COLUMNS = {
     "first_name",
     "last_name",

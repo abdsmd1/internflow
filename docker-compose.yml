@@ -4,7 +4,8 @@ name: internflow
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # PostgreSQL 16 + extension pgvector (recherche sémantique dans les rapports).
+    image: pgvector/pgvector:0.8.7-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?définir POSTGRES_USER dans .env}
@@ -45,6 +46,7 @@ services:
       # Uniquement pour l'API : les migrations n'ont pas besoin de ce secret.
       INTERNFLOW_JWT_SECRET: ${INTERNFLOW_JWT_SECRET:?définir INTERNFLOW_JWT_SECRET dans .env}
       INTERNFLOW_ACCESS_TOKEN_TTL_MINUTES: ${INTERNFLOW_ACCESS_TOKEN_TTL_MINUTES:-30}
+      INTERNFLOW_SEARCH_MIN_SCORE: ${INTERNFLOW_SEARCH_MIN_SCORE:-0.3}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
