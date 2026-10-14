@@ -10,6 +10,7 @@ from internflow_api.infrastructure.persistence.in_memory import InMemoryUnitOfWo
 from internflow_api.infrastructure.security.argon2_hasher import Argon2PasswordHasher
 from internflow_api.main import create_app
 from tests.factories import HR_EMAIL, TEST_PASSWORD, FakeClock, make_settings
+from tests.fake_embedder import KeywordEmbedder
 
 
 def login(client: TestClient, email: str, password: str = TEST_PASSWORD) -> str:
@@ -19,13 +20,22 @@ def login(client: TestClient, email: str, password: str = TEST_PASSWORD) -> str:
 
 
 def build_client(
-    uow: InMemoryUnitOfWork, clock: FakeClock, hasher: Argon2PasswordHasher
+    uow: InMemoryUnitOfWork,
+    clock: FakeClock,
+    hasher: Argon2PasswordHasher,
+    embedder: KeywordEmbedder | None = None,
 ) -> TestClient:
     """Application en mémoire avec un compte RH déjà créé (comme via la CLI)."""
     RegisterUser(uow, clock, hasher).execute(
         RegisterUserCommand(email=HR_EMAIL, password=TEST_PASSWORD, role=Role.HR)
     )
-    app = create_app(make_settings(), uow_factory=lambda: uow, clock=clock, password_hasher=hasher)
+    app = create_app(
+        make_settings(),
+        uow_factory=lambda: uow,
+        clock=clock,
+        password_hasher=hasher,
+        embedder=embedder or KeywordEmbedder(),
+    )
     return TestClient(app)
 
 

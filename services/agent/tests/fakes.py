@@ -109,6 +109,8 @@ class FakeApi:
             }
         ]
     )
+    search_hits: list[JsonObject] = field(default_factory=list)
+    searches: list[tuple[str, str | None]] = field(default_factory=list)
     created: list[JsonObject] = field(default_factory=list)
     on_call: Callable[[str], None] | None = None
 
@@ -156,3 +158,10 @@ class FakeApi:
         task = {"title": title, "description": description, "due_date": due_date}
         self.created.append({"internship_id": internship_id, **task})
         return task
+
+    def search_reports(
+        self, question: str, internship_id: str | None = None, limit: int = 5
+    ) -> list[JsonObject]:
+        self._check("search_reports")
+        self.searches.append((question, internship_id))
+        return self.search_hits[:limit]

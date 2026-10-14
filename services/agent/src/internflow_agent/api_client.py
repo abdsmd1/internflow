@@ -49,6 +49,9 @@ class InternFlowApi(Protocol):
     def create_task(
         self, internship_id: str, *, title: str, description: str, due_date: str
     ) -> JsonObject: ...
+    def search_reports(
+        self, question: str, internship_id: str | None = None, limit: int = 5
+    ) -> list[JsonObject]: ...
 
 
 class HttpInternFlowApi:
@@ -122,4 +125,13 @@ class HttpInternFlowApi:
             f"/api/v1/internships/{internship_id}/tasks",
             json={"title": title, "description": description, "due_date": due_date},
         )
+        return data
+
+    def search_reports(
+        self, question: str, internship_id: str | None = None, limit: int = 5
+    ) -> list[JsonObject]:
+        params: dict[str, str | int] = {"q": question, "limit": limit}
+        if internship_id:
+            params["internship_id"] = internship_id
+        data: list[JsonObject] = self._call("GET", "/api/v1/reports/search", params=params)
         return data

@@ -22,6 +22,7 @@ from internflow_api.domain.exceptions import (
     PermissionDeniedError,
     UnauthenticatedError,
 )
+from internflow_api.domain.ports.search import EmbeddingUnavailableError
 
 PROBLEM_JSON = "application/problem+json"
 _PROBLEM_BASE_URI = "https://internflow.dev/problems/"
@@ -70,6 +71,19 @@ def register_exception_handlers(app: FastAPI) -> None:
         # RFC 6750 : un 401 indique au client quel schéma d'authentification utiliser.
         headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, UnauthenticatedError) else None
         return problem(request, status, exc.code, str(exc), headers=headers)
+
+    @app.exception_handler(EmbeddingUnavailableError)
+    async def handle_embedding_unavailable(
+        request: Request, exc: EmbeddingUnavailableError
+    ) -> JSONResponse:
+        # La cause exacte (fichier manquant, réseau…) va dans les logs, pas au client.
+        logger.warning("search_unavailable", path=request.url.path, detail=str(exc))
+        return problem(
+            request,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            "search-unavailable",
+            "La recherche dans les rapports est momentanément indisponible.",
+        )
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(

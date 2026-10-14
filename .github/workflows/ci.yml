@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:0.8.7-pg16
         env:
           POSTGRES_USER: internflow
           POSTGRES_PASSWORD: internflow
@@ -122,7 +122,7 @@ jobs:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v10.2.0
       - name: Vulnérabilités connues (pip-audit)
-        run: uv export --all-packages --no-dev --no-hashes --no-emit-workspace -o requirements.txt && uvx pip-audit -r requirements.txt
+        run: uv export --all-packages --all-extras --no-dev --no-hashes --no-emit-workspace -o requirements.txt && uvx pip-audit -r requirements.txt
       - name: Secrets dans tout l'historique Git (gitleaks)
         # Binaire officiel épinglé : plus fiable que gitleaks-action,
         # qui échoue au premier push d'une branche.
@@ -175,6 +175,33 @@ jobs:
         run: |
           docker run --rm --entrypoint sh internflow-data:ci -c \
             'java -version && test -r "$INTERNFLOW_DATA_JDBC_DRIVER_JAR" && internflow-data --help'
+      - name: Test de fumée de l'image api (modèle d'embeddings embarqué, hors ligne)
+        if: matrix.image == 'api'
+        # --network none : prouve que le modèle est bien dans l'image ; --read-only :
+        # comme dans Compose. On vérifie aussi que le modèle comprend le SENS en français.
+        run: |
+          docker run --rm -i --network none --read-only --tmpfs /tmp internflow-api:ci python - <<'EOF'
+          import math, os
+          from internflow_api.infrastructure.search.fastembed_embedder import FastEmbedEmbedder
+
+          model = FastEmbedEmbedder(
+              os.environ["INTERNFLOW_EMBEDDING_MODEL"],
+              dimension=384,
+              cache_dir=os.environ["INTERNFLOW_EMBEDDING_CACHE_DIR"],
+          )
+
+          def cosine(a, b):
+              dot = sum(x * y for x, y in zip(a, b))
+              return dot / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))
+
+          question = model.embed_query("problèmes de déploiement avec Docker")
+          close, far = model.embed_passages(
+              ["Difficultés : les conteneurs ne démarrent pas sur le serveur.",
+               "Réalisations : rédaction de la recette du couscous."]
+          )
+          print(f"proche : {cosine(question, close):.2f} | sans rapport : {cosine(question, far):.2f}")
+          assert cosine(question, close) > cosine(question, far)
+          EOF
       - name: Test de fumée de l'image agent (démarrage et santé)
         if: matrix.image == 'agent'
         run: |

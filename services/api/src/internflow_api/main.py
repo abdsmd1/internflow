@@ -6,6 +6,7 @@ PostgreSQL, dans les tests on injecte des adaptateurs en mémoire.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -19,13 +20,16 @@ from sqlalchemy.orm import sessionmaker
 from internflow_api import __version__
 from internflow_api.config import Environment, Settings, get_settings
 from internflow_api.domain.ports.clock import Clock
+from internflow_api.domain.ports.search import TextEmbedder
 from internflow_api.domain.ports.security import PasswordHasher, TokenService
 from internflow_api.infrastructure.clock import SystemClock
 from internflow_api.infrastructure.logging import configure_logging
+from internflow_api.infrastructure.persistence.orm import EMBEDDING_DIMENSION
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import (
     SqlAlchemyUnitOfWork,
     build_engine,
 )
+from internflow_api.infrastructure.search.fastembed_embedder import FastEmbedEmbedder
 from internflow_api.infrastructure.security.argon2_hasher import Argon2PasswordHasher
 from internflow_api.infrastructure.security.jwt_tokens import JwtTokenService
 from internflow_api.presentation.dependencies import UnitOfWorkFactory
@@ -69,6 +73,7 @@ def create_app(
     readiness_check: ReadinessCheck | None = None,
     password_hasher: PasswordHasher | None = None,
     token_service: TokenService | None = None,
+    embedder: TextEmbedder | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     clock = clock or SystemClock()
@@ -82,8 +87,22 @@ def create_app(
         uow_factory = _sqlalchemy_uow_factory(engine)
         readiness_check = readiness_check or _database_readiness(engine)
 
+    local_model: FastEmbedEmbedder | None = None
+    if embedder is None:
+        local_model = FastEmbedEmbedder(
+            settings.embedding_model,
+            dimension=EMBEDDING_DIMENSION,
+            cache_dir=settings.embedding_cache_dir,
+        )
+        embedder = local_model
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if local_model is not None and settings.embedding_warmup:
+            # Démon : n'empêche ni le démarrage ni l'arrêt de l'API.
+            threading.Thread(
+                target=local_model.warm_up, name="embedding-warmup", daemon=True
+            ).start()
         yield
         if engine is not None:
             engine.dispose()  # libère proprement le pool de connexions
@@ -100,6 +119,8 @@ def create_app(
 
     app.state.uow_factory = uow_factory
     app.state.clock = clock
+    app.state.embedder = embedder
+    app.state.search_min_score = settings.search_min_score
     app.state.readiness_check = readiness_check or (lambda: True)
     app.state.password_hasher = password_hasher or Argon2PasswordHasher()
     app.state.token_service = token_service or JwtTokenService(

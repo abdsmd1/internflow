@@ -14,6 +14,13 @@ docker compose run --rm data pipeline --date 2026-10-06 --step aggregate
 docker compose run --rm data show internship_kpis --limit 5   # aperçu lisible
 ```
 
+Le générateur écrit directement en base, sans passer par l'indexation de l'API.
+Pour rendre ces rapports cherchables par l'assistant (ADR 0012) :
+
+```bash
+docker compose run --rm api python -m internflow_api.cli reindex-reports
+```
+
 Les résultats apparaissent dans `data/lake/` (ignoré par Git).
 
 ## Organisation

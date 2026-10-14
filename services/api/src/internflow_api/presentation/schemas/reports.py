@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from internflow_api.domain.report import ReportStatus, WeeklyReport
+from internflow_api.domain.report_search import ReportSection, SearchHit
 
 ISO_WEEK_PATTERN = r"^\d{4}-W\d{2}$"
 
@@ -64,4 +65,33 @@ class ReportRead(BaseModel):
             feedback=report.feedback,
             submitted_at=report.submitted_at,
             reviewed_at=report.reviewed_at,
+        )
+
+
+class ReportSearchHit(BaseModel):
+    """Passage d'un rapport proche de la question posée."""
+
+    report_id: UUID
+    internship_id: UUID
+    week: str = Field(examples=["2026-W41"])
+    section: ReportSection
+    section_label: str = Field(examples=["Difficultés"])
+    excerpt: str = Field(description="Texte du passage, tel que rédigé dans le rapport.")
+    score: float = Field(
+        ge=-1,
+        le=1,
+        description="Similarité cosinus : plus elle est proche de 1, plus le sens est proche.",
+    )
+
+    @classmethod
+    def from_hit(cls, hit: SearchHit) -> ReportSearchHit:
+        passage = hit.passage
+        return cls(
+            report_id=passage.report_id,
+            internship_id=passage.internship_id,
+            week=str(passage.week),
+            section=passage.section,
+            section_label=passage.section.label,
+            excerpt=passage.content,
+            score=round(hit.score, 4),
         )

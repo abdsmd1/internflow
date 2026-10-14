@@ -6,7 +6,9 @@ from typing import Protocol
 
 from internflow_api.domain.intern import Intern, InternId
 from internflow_api.domain.internship import DateRange, Internship, InternshipId, InternshipStatus
+from internflow_api.domain.ports.search import Vector
 from internflow_api.domain.report import IsoWeek, ReportId, WeeklyReport
+from internflow_api.domain.report_search import ReportPassage, SearchHit
 from internflow_api.domain.supervisor import Supervisor, SupervisorId
 from internflow_api.domain.task import Task, TaskId
 from internflow_api.domain.user import User
@@ -115,4 +117,38 @@ class WeeklyReportRepository(Protocol):
 
     def list_for_internship(self, internship_id: InternshipId) -> Sequence[WeeklyReport]:
         """Rapports d'un stage, de la semaine la plus récente à la plus ancienne."""
+        ...
+
+    def list_ids(self) -> Sequence[ReportId]:
+        """Identifiants de tous les rapports (réindexation complète)."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class IndexedPassage:
+    passage: ReportPassage
+    embedding: Vector
+    model: str  # nom du modèle qui a produit le vecteur
+
+
+class ReportPassageRepository(Protocol):
+    """Index de recherche des rapports : passages et vecteurs."""
+
+    def replace_for_report(self, report_id: ReportId, passages: Sequence[IndexedPassage]) -> None:
+        """Remplace tous les passages d'un rapport (indexation idempotente)."""
+        ...
+
+    def search(
+        self,
+        query: Vector,
+        scope: InternshipFilter,
+        *,
+        internship_id: InternshipId | None,
+        limit: int,
+        min_score: float,
+    ) -> Sequence[SearchHit]:
+        """Passages les plus proches de la question, limités aux stages de `scope`.
+
+        Triés par score décroissant ; ceux sous `min_score` sont écartés.
+        """
         ...

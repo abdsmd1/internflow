@@ -98,5 +98,5 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
 - ⚠️ Sur processeur, les réponses prennent de quelques secondes à plusieurs minutes ;
   Ollama installé directement sur Windows (avec la carte graphique) est bien plus
   rapide que dans Docker, et reste utilisable via `INTERNFLOW_AGENT_OLLAMA_URL`.
-- ⚠️ Pas encore de RAG vectoriel (pgvector) : les rapports sont lus par l'outil
-  `lire_rapports`, suffisant tant qu'on interroge un stage à la fois.
+- ~~Pas encore de RAG vectoriel~~ : ajouté par l'[ADR 0012](0012-recherche-semantique-rapports-pgvector.md)
+  (outil `rechercher_dans_rapports`, recherche pgvector dans tous les rapports visibles).

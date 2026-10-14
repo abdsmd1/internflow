@@ -52,6 +52,7 @@ Les sondes `/health/*` restent publiques. Droits par rôle : voir
 | `POST` | `/api/v1/internships/{id}/reports` | Déposer le rapport d'une semaine ISO, ex. `2026-W41` (stagiaire) |
 | `GET` | `/api/v1/internships/{id}/reports` | Rapports du stage, semaine la plus récente d'abord |
 | `POST` | `/api/v1/reports/{id}/review` | Relire un rapport avec un retour (encadrant du stage ou RH) |
+| `GET` | `/api/v1/reports/search?q=&internship_id=&limit=` | Recherche **par le sens** dans les rapports visibles (pgvector, [ADR 0012](../../docs/adr/0012-recherche-semantique-rapports-pgvector.md)) |
 | `GET` | `/health/live` | Sonde de vivacité |
 | `GET` | `/health/ready` | Sonde de disponibilité (vérifie PostgreSQL) |
 
@@ -62,3 +63,7 @@ make migrate
 uv run python -m internflow_api.cli create-hr-user --email rh@exemple.ma
 uv run uvicorn internflow_api.main:create_app --factory --reload
 ```
+
+La base doit disposer de l'extension **pgvector** (image `pgvector/pgvector` dans Compose).
+Au premier usage, le modèle d'embeddings (~220 Mo) est téléchargé dans le cache de
+FastEmbed. Après un import de données : `uv run python -m internflow_api.cli reindex-reports`.

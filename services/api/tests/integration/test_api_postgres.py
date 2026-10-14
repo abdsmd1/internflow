@@ -17,6 +17,7 @@ from internflow_api.infrastructure.clock import SystemClock
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import SqlAlchemyUnitOfWork
 from internflow_api.main import create_app
 from tests.factories import HR_EMAIL, TEST_PASSWORD, fast_hasher, intern_payload, make_settings
+from tests.fake_embedder import KeywordEmbedder
 from tests.helpers import authenticated
 
 pytestmark = pytest.mark.integration
@@ -31,7 +32,9 @@ def client(engine: Engine, database_url: str) -> Iterator[TestClient]:
         RegisterUserCommand(HR_EMAIL, TEST_PASSWORD, Role.HR)
     )
     settings = make_settings(database_url=PostgresDsn(database_url))
-    with TestClient(create_app(settings, password_hasher=hasher)) as test_client:
+    with TestClient(
+        create_app(settings, password_hasher=hasher, embedder=KeywordEmbedder())
+    ) as test_client:
         yield authenticated(test_client, HR_EMAIL)
 
 

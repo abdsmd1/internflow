@@ -9,6 +9,10 @@ compte ni mot de passe par défaut.
 
 Mettre à jour le contrat OpenAPI utilisé par le frontend :
     python -m internflow_api.cli export-openapi --output openapi.json
+
+Reconstruire l'index de recherche des rapports (après un import de données
+ou un changement de modèle d'embeddings) :
+    python -m internflow_api.cli reindex-reports
 """
 
 from __future__ import annotations
@@ -22,9 +26,11 @@ from pathlib import Path
 
 from sqlalchemy.orm import sessionmaker
 
+from internflow_api.application.report_search import ReindexReports, ReindexResult
 from internflow_api.application.users import RegisterUser, RegisterUserCommand
-from internflow_api.config import DatabaseSettings
+from internflow_api.config import DatabaseSettings, EmbeddingSettings
 from internflow_api.domain.exceptions import DomainError
+from internflow_api.domain.ports.search import EmbeddingUnavailableError, TextEmbedder
 from internflow_api.domain.user import Role
 from internflow_api.infrastructure.clock import SystemClock
 from internflow_api.infrastructure.persistence.sqlalchemy_uow import (
@@ -57,14 +63,48 @@ def create_hr_user(email: str, password: str) -> str:
     return str(user.id)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _local_embedder() -> TextEmbedder:
+    # Import tardif : les autres commandes n'ont pas besoin du modèle.
+    from internflow_api.infrastructure.persistence.orm import EMBEDDING_DIMENSION  # noqa: PLC0415
+    from internflow_api.infrastructure.search.fastembed_embedder import (  # noqa: PLC0415
+        FastEmbedEmbedder,
+    )
+
+    settings = EmbeddingSettings()
+    return FastEmbedEmbedder(
+        settings.embedding_model,
+        dimension=EMBEDDING_DIMENSION,
+        cache_dir=settings.embedding_cache_dir,
+    )
+
+
+def reindex_reports(embedder: TextEmbedder) -> ReindexResult:
+    engine = build_engine(DatabaseSettings().database_url.unicode_string(), pool_size=1)
+    try:
+        uow = SqlAlchemyUnitOfWork(sessionmaker(bind=engine, expire_on_commit=False))
+        return ReindexReports(uow, embedder).execute()
+    finally:
+        engine.dispose()
+
+
+def main(argv: Sequence[str] | None = None, *, embedder: TextEmbedder | None = None) -> int:
     parser = argparse.ArgumentParser(prog="internflow-admin", description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     create = commands.add_parser("create-hr-user", help="Créer un compte RH")
     create.add_argument("--email", required=True)
     export = commands.add_parser("export-openapi", help="Écrire le contrat OpenAPI")
     export.add_argument("--output", type=Path, required=True)
+    commands.add_parser("reindex-reports", help="Reconstruire l'index de recherche des rapports")
     args = parser.parse_args(argv)
+
+    if args.command == "reindex-reports":
+        try:
+            result = reindex_reports(embedder or _local_embedder())
+        except EmbeddingUnavailableError as error:
+            print(f"Erreur : {error}", file=sys.stderr)
+            return 1
+        print(f"Index reconstruit : {result.reports} rapports, {result.passages} passages.")
+        return 0
 
     if args.command == "export-openapi":
         # Import tardif : la création de compte n'a pas besoin de charger toute l'API.

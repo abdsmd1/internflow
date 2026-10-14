@@ -10,7 +10,7 @@ from tests.fakes import ScriptedModel, call, say
 
 def scripted(_settings: object) -> ScriptedModel:
     # Bonne réponse à la 1re question ; « Je ne sais pas » ensuite, ce qui réussit
-    # aussi les deux cas où il ne faut surtout rien faire : score de 3 sur 8.
+    # aussi les deux cas où il ne faut surtout rien faire : score de 3.
     script = [call("taches_en_retard"), say("« Modéliser la base de données » est en retard.")]
     return ScriptedModel(script=script + [say("Je ne sais pas.")] * (len(evals.CASES) - 1))
 
@@ -30,3 +30,15 @@ def test_evaluation_reports_each_case_and_the_score(
 def test_evaluation_fails_below_the_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(evals, "build_chat_model", scripted)
     assert evals.main(["--min-score", "0.8"]) == 1
+
+
+def test_the_demo_search_imitates_the_api() -> None:
+    api = evals.DemoApi()
+    [hit] = api.search_reports("Difficultés avec les migrations ?")
+    assert (hit["week"], hit["section"], hit["excerpt"]) == (
+        "2026-W41",
+        "difficulties",
+        "Migrations Alembic",
+    )
+    assert api.search_reports("migrations", internship_id="stage-2") == []
+    assert api.search_reports("photosynthèse") == []

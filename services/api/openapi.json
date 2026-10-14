@@ -543,6 +543,71 @@
         "title": "ReportReview",
         "type": "object"
       },
+      "ReportSearchHit": {
+        "description": "Passage d'un rapport proche de la question posée.",
+        "properties": {
+          "excerpt": {
+            "description": "Texte du passage, tel que rédigé dans le rapport.",
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "internship_id": {
+            "format": "uuid",
+            "title": "Internship Id",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "score": {
+            "description": "Similarité cosinus : plus elle est proche de 1, plus le sens est proche.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "section": {
+            "$ref": "#/components/schemas/ReportSection"
+          },
+          "section_label": {
+            "examples": [
+              "Difficultés"
+            ],
+            "title": "Section Label",
+            "type": "string"
+          },
+          "week": {
+            "examples": [
+              "2026-W41"
+            ],
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "internship_id",
+          "week",
+          "section",
+          "section_label",
+          "excerpt",
+          "score"
+        ],
+        "title": "ReportSearchHit",
+        "type": "object"
+      },
+      "ReportSection": {
+        "enum": [
+          "accomplishments",
+          "difficulties",
+          "next_steps",
+          "feedback"
+        ],
+        "title": "ReportSection",
+        "type": "string"
+      },
       "ReportStatus": {
         "enum": [
           "submitted",
@@ -1934,6 +1999,108 @@
         "summary": "Confier une tâche (encadrant du stage ou RH)",
         "tags": [
           "Tâches"
+        ]
+      }
+    },
+    "/api/v1/reports/search": {
+      "get": {
+        "description": "Retrouve les passages de rapports dont le **sens** est proche de la question, même sans mot commun. Les droits habituels s'appliquent : un encadrant ne cherche que dans les stages qu'il encadre, un stagiaire dans les siens.",
+        "operationId": "search_reports_api_v1_reports_search_get",
+        "parameters": [
+          {
+            "description": "Question ou thème recherché.",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Question ou thème recherché.",
+              "examples": [
+                "difficultés avec Docker"
+              ],
+              "maxLength": 500,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Limiter à un stage.",
+            "in": "query",
+            "name": "internship_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limiter à un stage.",
+              "title": "Internship Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSearchHit"
+                  },
+                  "title": "Response Search Reports Api V1 Reports Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton absent, invalide ou expiré (RFC 9457)"
+          },
+          "403": {
+            "description": "Action non autorisée pour ce rôle (RFC 9457)"
+          },
+          "404": {
+            "description": "Stage introuvable (filtre `internship_id`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "Modèle d'embeddings indisponible (RFC 9457)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Recherche sémantique dans les rapports visibles par l'appelant",
+        "tags": [
+          "Rapports hebdomadaires"
         ]
       }
     },

@@ -18,6 +18,7 @@ from internflow_api.application.internships import (
     ListInternships,
     PlanInternship,
 )
+from internflow_api.application.report_search import ReportIndexer, SearchReports
 from internflow_api.application.reports import ListReports, ReviewReport, SubmitReport
 from internflow_api.application.supervisors import (
     GetSupervisor,
@@ -27,6 +28,7 @@ from internflow_api.application.supervisors import (
 from internflow_api.application.tasks import ChangeTaskStatus, CreateTask, ListTasks
 from internflow_api.application.users import Authenticate, CreateUserAccount, RegisterUser
 from internflow_api.domain.ports.clock import Clock
+from internflow_api.domain.ports.search import TextEmbedder
 from internflow_api.domain.ports.security import PasswordHasher, TokenService
 from internflow_api.domain.ports.unit_of_work import UnitOfWork
 from internflow_api.presentation.security import get_token_service
@@ -50,7 +52,13 @@ def get_password_hasher(request: Request) -> PasswordHasher:
     return hasher
 
 
+def get_embedder(request: Request) -> TextEmbedder:
+    embedder: TextEmbedder = request.app.state.embedder
+    return embedder
+
+
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
+EmbedderDep = Annotated[TextEmbedder, Depends(get_embedder)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 HasherDep = Annotated[PasswordHasher, Depends(get_password_hasher)]
 
@@ -124,13 +132,17 @@ def change_task_status_use_case(uow: UowDep, clock: ClockDep) -> ChangeTaskStatu
 
 
 # ------------------------------------------------------------ rapports hebdo
-def submit_report_use_case(uow: UowDep, clock: ClockDep) -> SubmitReport:
-    return SubmitReport(uow, clock)
+def submit_report_use_case(uow: UowDep, clock: ClockDep, embedder: EmbedderDep) -> SubmitReport:
+    return SubmitReport(uow, clock, ReportIndexer(embedder))
 
 
 def list_reports_use_case(uow: UowDep) -> ListReports:
     return ListReports(uow)
 
 
-def review_report_use_case(uow: UowDep, clock: ClockDep) -> ReviewReport:
-    return ReviewReport(uow, clock)
+def review_report_use_case(uow: UowDep, clock: ClockDep, embedder: EmbedderDep) -> ReviewReport:
+    return ReviewReport(uow, clock, ReportIndexer(embedder))
+
+
+def search_reports_use_case(request: Request, uow: UowDep, embedder: EmbedderDep) -> SearchReports:
+    return SearchReports(uow, embedder, request.app.state.search_min_score)

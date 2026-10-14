@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from internflow_api.application.internships import load_visible_internship
+from internflow_api.application.report_search import ReportIndexer
 from internflow_api.domain.authorization import (
     can_view_internship,
     ensure_can_submit_report,
@@ -31,9 +32,10 @@ class SubmitReportCommand:
 class SubmitReport:
     """Le stagiaire dépose son rapport de la semaine (un seul par semaine)."""
 
-    def __init__(self, uow: UnitOfWork, clock: Clock) -> None:
+    def __init__(self, uow: UnitOfWork, clock: Clock, indexer: ReportIndexer) -> None:
         self._uow = uow
         self._clock = clock
+        self._indexer = indexer
 
     def execute(self, actor: Principal, command: SubmitReportCommand) -> WeeklyReport:
         with self._uow as uow:
@@ -50,6 +52,7 @@ class SubmitReport:
                 now=self._clock.now(),
             )
             uow.reports.add(report)
+            self._indexer.index_if_available(uow, report)
             uow.commit()
         return report
 
@@ -67,9 +70,10 @@ class ListReports:
 class ReviewReport:
     """L'encadrant (ou un RH) relit le rapport et laisse un retour."""
 
-    def __init__(self, uow: UnitOfWork, clock: Clock) -> None:
+    def __init__(self, uow: UnitOfWork, clock: Clock, indexer: ReportIndexer) -> None:
         self._uow = uow
         self._clock = clock
+        self._indexer = indexer
 
     def execute(self, actor: Principal, report_id: ReportId, feedback: str) -> WeeklyReport:
         with self._uow as uow:
@@ -80,5 +84,6 @@ class ReviewReport:
             ensure_can_supervise(actor, internship)
             report.review(feedback, self._clock.now())
             uow.reports.save(report)
+            self._indexer.index_if_available(uow, report)  # le retour devient cherchable
             uow.commit()
         return report

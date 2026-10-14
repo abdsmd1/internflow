@@ -26,6 +26,7 @@ def make_settings(**overrides: object) -> Settings:
         "environment": Environment.TEST,
         "log_level": "WARNING",
         "jwt_secret": TEST_JWT_SECRET,
+        "embedding_warmup": False,  # jamais de téléchargement de modèle en test
     }
     values.update(overrides)
     return Settings(**values)  # type: ignore[arg-type]

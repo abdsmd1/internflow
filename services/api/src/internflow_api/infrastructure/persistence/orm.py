@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -43,6 +44,10 @@ USER_INTERN_UNIQUE_CONSTRAINT = "uq_users_intern_id"
 USER_SUPERVISOR_UNIQUE_CONSTRAINT = "uq_users_supervisor_id"
 # Un seul rapport par stage et par semaine ISO.
 REPORT_WEEK_UNIQUE_CONSTRAINT = "uq_weekly_reports_internship_week"
+
+# Taille des vecteurs du modèle d'embeddings (paraphrase-multilingual-MiniLM-L12-v2).
+# Changer de modèle de taille différente exige une migration puis `reindex-reports`.
+EMBEDDING_DIMENSION = 384
 
 
 class Base(DeclarativeBase):
@@ -175,3 +180,31 @@ class WeeklyReportRecord(Base):
     feedback: Mapped[str | None] = mapped_column(Text)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ReportPassageRecord(Base):
+    """Passage d'un rapport et son vecteur, pour la recherche sémantique (pgvector).
+
+    Pas d'index approché (HNSW) : la recherche exacte reste rapide à cette échelle
+    et, surtout, elle respecte les filtres de droits sans perdre de résultats
+    (voir ADR 0012).
+    """
+
+    __tablename__ = "report_passages"
+    __table_args__ = (
+        CheckConstraint(
+            "section IN ('accomplishments', 'difficulties', 'next_steps', 'feedback')",
+            name="section_valid",
+        ),
+        CheckConstraint("position >= 0", name="position_positive"),
+    )
+
+    # Clé naturelle : un passage est le n-ième morceau d'une section d'un rapport.
+    report_id: Mapped[UUID] = mapped_column(
+        ForeignKey("weekly_reports.id", ondelete="CASCADE"), primary_key=True
+    )
+    section: Mapped[str] = mapped_column(String(20), primary_key=True)
+    position: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    content: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION))
+    embedding_model: Mapped[str] = mapped_column(String(200))
