@@ -50,7 +50,7 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
 - Surtout : même trompé, le modèle ne peut que **proposer** une action. La
   validation humaine est la vraie protection, pas la consigne.
 
-### Modèle : Ollama par défaut
+### Modèle : local ou API cloud, au choix
 
 - **Ollama + `qwen2.5:3b`** : modèle libre, exécuté en local, gratuit, sans envoyer
   de données personnelles à un tiers. Il gère l'appel d'outils et le français.
@@ -59,8 +59,14 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
 - Réglages pour le processeur : modèle gardé en mémoire 30 min, chargé dès le
   démarrage du service, contexte de 4 096 jetons, réponses de 512 jetons au plus,
   résultats d'outils limités à 15 lignes.
-- Le fournisseur est configurable (`INTERNFLOW_AGENT_LLM_PROVIDER=anthropic`, avec la
-  dépendance optionnelle) sans toucher au graphe.
+- **API compatible OpenAI** (`INTERNFLOW_AGENT_LLM_PROVIDER=openai`), Groq par défaut :
+  modèles open source hébergés (`llama-3.3-70b-versatile`), offre gratuite avec une
+  clé, réponses en une à deux secondes. C'est l'option retenue pour les démonstrations
+  sur un portable. Contrepartie : les questions et les données consultées sortent du
+  poste ; acceptable ici (données fictives), à remplacer par un modèle local ou un
+  fournisseur sous contrat pour de vraies données personnelles.
+- Le fournisseur se choisit par configuration, sans toucher au graphe ; la clé est
+  obligatoire et vérifiée au démarrage.
 
 ### Qualité
 

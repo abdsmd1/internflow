@@ -157,8 +157,8 @@ class AgentService:
         except MODEL_UNAVAILABLE_ERRORS as error:
             logger.warning("model_unavailable", error=type(error).__name__)
             raise ModelUnavailableError(
-                "Le modèle de langage ne répond pas : vérifiez qu'Ollama est démarré "
-                "et que le modèle est téléchargé."
+                "Le modèle de langage ne répond pas : vérifiez qu'Ollama est démarré et le "
+                "modèle téléchargé, ou, avec une API cloud, la clé et le quota gratuit."
             ) from error
 
         new_messages = result.value["messages"][before:]

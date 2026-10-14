@@ -47,7 +47,7 @@ test-web: ## Lint, typage et tests du frontend React
 test-agent: ## Tests de l'assistant IA (modèle simulé, sans Ollama)
 	cd $(AGENT) && uv run pytest
 
-eval-agent: ## Évalue l'assistant avec le vrai modèle (Ollama démarré)
+eval-agent: ## Évalue l'assistant avec le vrai modèle configuré dans .env
 	docker compose --profile ai run --rm agent internflow-agent-eval
 
 openapi: ## Régénère les contrats OpenAPI et les types TypeScript du frontend

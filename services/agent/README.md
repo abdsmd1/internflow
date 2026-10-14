@@ -7,12 +7,22 @@ l'[ADR 0011](../../docs/adr/0011-agent-ia-langgraph.md).
 
 ## Lancer avec Docker
 
+**Avec une API cloud (recommandé sur un portable)** : créez une clé gratuite sur
+https://console.groq.com/keys, renseignez-la dans `.env`
+(`INTERNFLOW_AGENT_LLM_PROVIDER=openai`, `INTERNFLOW_AGENT_LLM_API_KEY=…`), puis :
+
 ```bash
-docker compose --profile ai up -d    # Ollama + téléchargement du modèle + assistant
+docker compose --profile ai up -d
 ```
 
-Le premier lancement télécharge le modèle (environ 2 Go). Ouvrez ensuite
-http://localhost:8080, page **Assistant**.
+**Avec un modèle local** (`INTERNFLOW_AGENT_LLM_PROVIDER=ollama`) : le premier
+lancement télécharge le modèle (environ 2 Go).
+
+```bash
+docker compose --profile ai --profile ollama up -d
+```
+
+Ouvrez ensuite http://localhost:8080, page **Assistant**.
 
 ## Fonctionnement
 
@@ -36,7 +46,9 @@ Interface ──► nginx ──► agent ──(jeton de l'utilisateur)──�
 | Variable | Défaut | Rôle |
 |----------|--------|------|
 | `API_URL` | `http://localhost:8000` | API InternFlow |
-| `LLM_PROVIDER` | `ollama` | `ollama` ou `anthropic` (dépendance optionnelle) |
+| `LLM_PROVIDER` | `ollama` | `ollama`, `openai` (toute API compatible, Groq par défaut) ou `anthropic` |
+| `LLM_API_KEY` | — | clé de l'API cloud (obligatoire avec `openai`) |
+| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` | adresse de l'API compatible OpenAI |
 | `LLM_MODEL` | `qwen2.5:3b` | modèle utilisé (`qwen2.5:7b` : meilleur, plus lourd) |
 | `LLM_KEEP_ALIVE` | `30m` | durée pendant laquelle Ollama garde le modèle en mémoire |
 | `LLM_CONTEXT_TOKENS` | `4096` | taille du contexte envoyé au modèle |

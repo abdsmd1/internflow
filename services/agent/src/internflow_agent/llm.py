@@ -5,9 +5,11 @@ from __future__ import annotations
 import importlib
 
 import httpx
+import openai
 import structlog
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from ollama import ResponseError
 
 from internflow_agent.config import AgentSettings
@@ -15,12 +17,14 @@ from internflow_agent.config import AgentSettings
 logger = structlog.get_logger(__name__)
 
 # Erreurs signifiant « le modèle n'est pas joignable ou pas prêt » (Ollama arrêté,
-# modèle pas encore téléchargé, délai dépassé) : l'API répond alors 503.
+# modèle pas téléchargé, délai dépassé, quota ou clé refusés par l'API cloud) :
+# l'assistant répond alors 503.
 MODEL_UNAVAILABLE_ERRORS: tuple[type[BaseException], ...] = (
     ConnectionError,
     TimeoutError,
     httpx.TransportError,
     ResponseError,
+    openai.APIError,
 )
 
 
@@ -33,6 +37,19 @@ def build_chat_model(settings: AgentSettings) -> BaseChatModel:
             model_name=settings.llm_model, temperature=0, timeout=settings.llm_timeout_seconds
         )
         return model
+
+    if settings.llm_provider == "openai":
+        if settings.llm_api_key is None:  # déjà refusé par AgentSettings ; garde pour mypy
+            raise ValueError("Clé d'API manquante.")
+        return ChatOpenAI(
+            model=settings.llm_model,
+            base_url=settings.openai_base_url,
+            api_key=settings.llm_api_key,
+            temperature=0,
+            max_completion_tokens=settings.llm_max_answer_tokens,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=2,  # absorbe un dépassement ponctuel de quota (erreur 429)
+        )
 
     return ChatOllama(
         model=settings.llm_model,
