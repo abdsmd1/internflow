@@ -23,6 +23,9 @@ export function Layout() {
             <li>
               <NavLink to="/encadrants">Encadrants</NavLink>
             </li>
+            <li>
+              <NavLink to="/assistant">Assistant</NavLink>
+            </li>
           </ul>
         </nav>
         <div className="sidebar__account">

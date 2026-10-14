@@ -68,6 +68,53 @@ services:
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]
 
+  # Assistant IA (profil « ai ») : docker compose --profile ai up -d
+  # Ollama exécute le modèle de langage en local ; le premier lancement télécharge
+  # le modèle (environ 2 Go), conservé ensuite dans le volume ollama-models.
+  ollama:
+    image: ollama/ollama:0.12.6
+    profiles: [ai]
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Job ponctuel : télécharge le modèle s'il n'est pas déjà présent.
+  ollama-pull:
+    image: ollama/ollama:0.12.6
+    profiles: [ai]
+    command: ["pull", "${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:3b}"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    profiles: [ai]
+    restart: unless-stopped
+    environment:
+      INTERNFLOW_AGENT_API_URL: http://api:8000
+      INTERNFLOW_AGENT_LLM_MODEL: ${INTERNFLOW_AGENT_LLM_MODEL:-qwen2.5:3b}
+      # Ollama installé directement sur Windows (plus rapide, utilise la carte
+      # graphique) : INTERNFLOW_AGENT_OLLAMA_URL=http://host.docker.internal:11434
+      INTERNFLOW_AGENT_OLLAMA_URL: ${INTERNFLOW_AGENT_OLLAMA_URL:-http://ollama:11434}
+    depends_on:
+      api:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+
   # Traitements de données, lancés à la demande (profil « tools ») :
   #   docker compose run --rm data seed
   #   docker compose run --rm data pipeline
@@ -96,3 +143,4 @@ services:
 
 volumes:
   postgres-data:
+  ollama-models:

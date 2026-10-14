@@ -76,12 +76,15 @@ jobs:
         run: cd services/api && uv run pytest --cov-report=xml
       - name: Tests du pipeline PySpark avec couverture (seuil 85 %)
         run: cd data && uv run pytest --cov-report=xml
+      - name: Tests de l'assistant IA avec couverture (seuil 85 %, modèle simulé)
+        run: cd services/agent && uv run pytest --cov-report=xml
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
           path: |
             services/api/coverage.xml
+            services/agent/coverage.xml
             data/coverage.xml
 
   frontend:
@@ -100,7 +103,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - name: Types TypeScript à jour avec le contrat OpenAPI
-        run: npm run gen:api && git diff --exit-code -- src/api/schema.d.ts
+        run: npm run gen:api && git diff --exit-code -- src/api/
       - run: npm run lint
       - run: npm run typecheck
       - name: Tests avec couverture (seuil 80 %)
@@ -142,6 +145,10 @@ jobs:
             context: .
             dockerfile: services/api/Dockerfile
             skip-dirs: ""
+          - image: agent
+            context: .
+            dockerfile: services/agent/Dockerfile
+            skip-dirs: ""
           - image: web
             context: frontend
             dockerfile: frontend/Dockerfile
@@ -168,6 +175,13 @@ jobs:
         run: |
           docker run --rm --entrypoint sh internflow-data:ci -c \
             'java -version && test -r "$INTERNFLOW_DATA_JDBC_DRIVER_JAR" && internflow-data --help'
+      - name: Test de fumée de l'image agent (démarrage et santé)
+        if: matrix.image == 'agent'
+        run: |
+          docker run -d --name agent --read-only --tmpfs /tmp -p 8100:8100 internflow-agent:ci
+          for i in $(seq 1 15); do curl -fsS http://localhost:8100/health/live && break; sleep 1; done
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8100/api/v1/agent/chat -H "Content-Type: application/json" -d '{"message":"test"}')
+          test "$code" = "401"
       - name: Test de fumée de l'image web (nginx démarre et sert l'application)
         if: matrix.image == 'web'
         run: |

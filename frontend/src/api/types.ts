@@ -1,3 +1,4 @@
+import type { components as AgentComponents } from "./agent-schema";
 import type { components } from "./schema";
 
 type Schemas = components["schemas"];
@@ -24,3 +25,6 @@ export interface Page<T> {
   offset: number;
   limit: number;
 }
+
+export type ChatResponse = AgentComponents["schemas"]["ChatResponse"];
+export type PendingTask = AgentComponents["schemas"]["PendingTask"];

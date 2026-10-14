@@ -3,7 +3,7 @@
 Plateforme de gestion automatisée des stagiaires : recrutement, suivi, évaluation,
 analytique (PySpark) et assistant IA.
 
-> **En cours :** interface web React pour les RH, les encadrants et les stagiaires. Prochaine étape : l'agent IA.
+> **En cours :** assistant IA (LangGraph + Ollama) qui répond aux questions et propose des actions validées par l'utilisateur.
 
 ## Démarrage rapide
 
@@ -26,6 +26,14 @@ docker compose run --rm data pipeline    # bronze → silver → gold dans data/
 
 Détails : [`data/README.md`](data/README.md).
 
+Assistant IA (modèle local Ollama, ~2 Go téléchargés au premier lancement) :
+
+```bash
+docker compose --profile ai up -d        # puis page « Assistant » sur http://localhost:8080
+```
+
+Détails : [`services/agent/README.md`](services/agent/README.md).
+
 Application : http://localhost:8080. Documentation interactive de l'API : http://localhost:8000/docs — bouton **Authorize** pour se connecter
 (le champ *username* contient l'e-mail).
 
@@ -43,16 +51,17 @@ curl -X POST http://localhost:8000/api/v1/interns \
 ```
 internflow/
 ├── services/
-│   └── api/                    # API FastAPI (architecture hexagonale)
-│       ├── src/internflow_api/
-│       │   ├── domain/         # règles métier pures — aucun framework
-│       │   ├── application/    # cas d'usage
-│       │   ├── infrastructure/ # PostgreSQL, horloge, logs
-│       │   ├── presentation/   # routes HTTP, DTO, erreurs
-│       │   └── main.py         # composition root
-│       ├── openapi.json        # contrat de l'API, source des types du frontend
-│       ├── migrations/         # Alembic
-│       └── tests/              # unit / e2e / integration
+│   ├── api/                    # API FastAPI (architecture hexagonale)
+│   │   ├── src/internflow_api/
+│   │   │   ├── domain/         # règles métier pures — aucun framework
+│   │   │   ├── application/    # cas d'usage
+│   │   │   ├── infrastructure/ # PostgreSQL, horloge, logs
+│   │   │   ├── presentation/   # routes HTTP, DTO, erreurs
+│   │   │   └── main.py         # composition root
+│   │   ├── openapi.json        # contrat de l'API, source des types du frontend
+│   │   ├── migrations/         # Alembic
+│   │   └── tests/              # unit / e2e / integration
+│   └── agent/                  # assistant IA : LangGraph, outils via l'API, validation humaine
 ├── frontend/                   # interface React + TypeScript (Vite, nginx)
 │   └── src/                    # api/ (client typé), pages/, components/, test/
 ├── data/                       # seed + pipeline PySpark (bronze / silver / gold)
@@ -94,6 +103,8 @@ make test-integration   # vrai PostgreSQL via Testcontainers (Docker requis)
 make test               # tout, avec couverture
 make test-data          # pipeline PySpark (Java 17+ requis)
 make test-web           # frontend : lint, typage, tests
+make test-agent         # assistant IA (modèle simulé)
+make eval-agent         # assistant IA avec le vrai modèle (score)
 ```
 
 Pour lancer les tests d'intégration contre une base existante :
@@ -118,7 +129,9 @@ Pour lancer les tests d'intégration contre une base existante :
    - ✅ Pipeline PySpark bronze / silver / gold, données fictives réalistes — [ADR 0009](docs/adr/0009-pipeline-pyspark-medaillon.md)
    - ⏳ Orchestration Airflow, stockage MinIO
 4. ⏳ Modèle de matching candidat ↔ offre (MLlib, MLflow)
-5. ⏳ Agent IA (LangGraph, RAG sur pgvector, validation humaine)
+5. ⏳ Agent IA
+   - ✅ Assistant LangGraph + Ollama, droits de l'utilisateur, validation humaine, évaluations — [ADR 0011](docs/adr/0011-agent-ia-langgraph.md)
+   - ⏳ RAG sur pgvector, conversations persistantes
 6. ⏳ Frontend et observabilité
    - ✅ Interface React typée par le contrat OpenAPI — [ADR 0010](docs/adr/0010-frontend-react.md)
    - ⏳ Observabilité (OpenTelemetry, Grafana)

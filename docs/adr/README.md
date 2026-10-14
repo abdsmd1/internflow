@@ -16,5 +16,6 @@ acceptation : si la décision change, on écrit un nouvel ADR qui remplace l'anc
 | [0008](0008-taches-et-rapports-hebdomadaires.md) | Tâches et rapports hebdomadaires | Accepté |
 | [0009](0009-pipeline-pyspark-medaillon.md) | Pipeline PySpark en architecture médaillon | Accepté |
 | [0010](0010-frontend-react.md) | Frontend React typé par le contrat OpenAPI | Accepté |
+| [0011](0011-agent-ia-langgraph.md) | Assistant IA : LangGraph, droits de l'utilisateur et validation humaine | Accepté |
 
 Modèle pour un nouvel ADR : copier [`template.md`](template.md).
