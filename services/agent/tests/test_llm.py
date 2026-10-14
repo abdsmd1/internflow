@@ -48,12 +48,12 @@ def test_openai_compatible_provider_defaults_to_groq() -> None:
     settings = AgentSettings(
         _env_file=None,
         llm_provider="openai",
-        llm_model="llama-3.3-70b-versatile",
+        llm_model="openai/gpt-oss-120b",
         llm_api_key=SecretStr("cle-de-test"),
     )
     model = build_chat_model(settings)
     assert isinstance(model, ChatOpenAI)
-    assert model.model_name == "llama-3.3-70b-versatile"
+    assert model.model_name == "openai/gpt-oss-120b"
     assert model.openai_api_base == "https://api.groq.com/openai/v1"
     assert model.temperature == 0
 

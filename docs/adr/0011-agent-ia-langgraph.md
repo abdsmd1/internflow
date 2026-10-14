@@ -60,7 +60,7 @@ START → agent ──(appel d'outil ?)──► tools ──► agent … ─�
   démarrage du service, contexte de 4 096 jetons, réponses de 512 jetons au plus,
   résultats d'outils limités à 15 lignes.
 - **API compatible OpenAI** (`INTERNFLOW_AGENT_LLM_PROVIDER=openai`), Groq par défaut :
-  modèles open source hébergés (`llama-3.3-70b-versatile`), offre gratuite avec une
+  modèles open source hébergés (`openai/gpt-oss-120b`), offre gratuite avec une
   clé, réponses en une à deux secondes. C'est l'option retenue pour les démonstrations
   sur un portable. Contrepartie : les questions et les données consultées sortent du
   poste ; acceptable ici (données fictives), à remplacer par un modèle local ou un

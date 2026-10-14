@@ -68,4 +68,9 @@ def warm_up(model: BaseChatModel) -> None:
         model.invoke("Réponds simplement : prêt.")
         logger.info("model_ready")
     except MODEL_UNAVAILABLE_ERRORS as error:
-        logger.warning("model_warmup_failed", error=type(error).__name__)
+        logger.warning("model_warmup_failed", error=type(error).__name__, detail=describe(error))
+
+
+def describe(error: BaseException) -> str:
+    """Message d'erreur court pour les journaux (le fournisseur n'y met jamais la clé)."""
+    return str(error).replace("\n", " ")[:200]
